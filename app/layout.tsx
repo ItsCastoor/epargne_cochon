@@ -16,6 +16,9 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "💰 Épargne Cochon",
   description: "Gestion de comptes partagés d'épargne",
+  icons: {
+    icon: "/favicon.png",
+  },
 };
 
 export default function RootLayout({
