@@ -1,5 +1,7 @@
+import { getToken } from './auth';
+
 // lib/api.ts - Client API pour communiquer avec l'API Express
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://apiepargne.tpareschi.eu';
+const API_URL = process.env.REACT_APP_API_URL || 'https://apiepargne.tpareschi.eu';
 
 export interface ApiResponse<T = any> {
   error?: string;
@@ -17,7 +19,7 @@ export async function apiCall<T>(
   };
 
   // Ajouter le token JWT s'il existe
-  const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
+  const token = await getToken();
   if (token) {
     headers.Authorization = `Bearer ${token}`;
   }

@@ -1,0 +1,31 @@
+{
+  "expo": {
+    "name": "Épargne Cochon",
+    "slug": "epargne-cochon",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "icon": "./public/favicon.png",
+    "userInterfaceStyle": "light",
+    "scheme": "epargne",
+    "platforms": [
+      "ios",
+      "android",
+      "web"
+    ],
+    "web": {
+      "favicon": "./public/favicon.png",
+      "bundler": "metro"
+    },
+    "plugins": [
+      [
+        "expo-splash-screen",
+        {
+          "image": "./public/favicon.png",
+          "resizeMode": "contain",
+          "backgroundColor": "#ffffff"
+        }
+      ]
+    ]
+  }
+}
+
