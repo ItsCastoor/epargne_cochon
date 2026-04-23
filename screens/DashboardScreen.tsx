@@ -1,7 +1,10 @@
 import React, { useEffect, useState } from 'react';
 import { View, Text, TouchableOpacity, FlatList, ActivityIndicator, Alert } from 'react-native';
+import { BottomTabScreenProps } from '@react-navigation/bottom-tabs';
 import { useAuth } from '@/lib/AuthContext';
 import { getSharedAccounts } from '@/lib/api';
+import { logger } from '@/lib/logger';
+import { AppStackParamList } from '@/lib/navigation';
 
 interface Account {
   id: string;
@@ -12,7 +15,11 @@ interface Account {
   currency: string;
 }
 
-export default function DashboardScreen() {
+const MODULE = 'DashboardScreen';
+
+type Props = BottomTabScreenProps<AppStackParamList, 'DashboardTab'>;
+
+const DashboardScreen: React.FC<Props> = () => {
   const { logout, user } = useAuth();
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -21,22 +28,30 @@ export default function DashboardScreen() {
     loadAccounts();
   }, []);
 
-  const loadAccounts = async () => {
+  const loadAccounts = async (): Promise<void> => {
     try {
       setIsLoading(true);
+      await logger.info(MODULE, 'Chargement des comptes');
       const data = await getSharedAccounts();
-      setAccounts(Array.isArray(data) ? data : data.data || []);
-    } catch (error: any) {
+      const accountList = Array.isArray(data) ? data : (data as { data: Account[] }).data || [];
+      setAccounts(accountList);
+      await logger.info(MODULE, `${accountList.length} comptes chargés`);
+    } catch (error) {
+      const err = error instanceof Error ? error : new Error(String(error));
+      await logger.error(MODULE, 'Impossible de charger les comptes', err);
       Alert.alert('Erreur', 'Impossible de charger les comptes');
     } finally {
       setIsLoading(false);
     }
   };
 
-  const handleLogout = async () => {
+  const handleLogout = async (): Promise<void> => {
     try {
       await logout();
+      await logger.info(MODULE, 'Déconnexion réussie');
     } catch (error) {
+      const err = error instanceof Error ? error : new Error(String(error));
+      await logger.error(MODULE, 'Erreur lors de la déconnexion', err);
       Alert.alert('Erreur', 'Erreur lors de la déconnexion');
     }
   };
@@ -88,5 +103,7 @@ export default function DashboardScreen() {
       </View>
     </View>
   );
-}
+};
+
+export default DashboardScreen;
 

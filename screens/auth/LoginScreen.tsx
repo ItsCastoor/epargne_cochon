@@ -1,14 +1,18 @@
 import React, { useState } from 'react';
 import { View, TextInput, TouchableOpacity, Text, KeyboardAvoidingView, Platform, ScrollView, Alert } from 'react-native';
+import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useAuth } from '@/lib/AuthContext';
+import { AuthStackParamList } from '@/lib/navigation';
 
-export default function LoginScreen({ navigation }: any) {
+type Props = NativeStackScreenProps<AuthStackParamList, 'Login'>;
+
+const LoginScreen: React.FC<Props> = ({ navigation }) => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const { login } = useAuth();
 
-  const handleLogin = async () => {
+  const handleLogin = async (): Promise<void> => {
     if (!email || !password) {
       Alert.alert('Erreur', 'Veuillez remplir tous les champs');
       return;
@@ -17,8 +21,9 @@ export default function LoginScreen({ navigation }: any) {
     setIsLoading(true);
     try {
       await login(email, password);
-    } catch (error: any) {
-      Alert.alert('Erreur de connexion', error.message || 'Une erreur s\'est produite');
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Une erreur s\'est produite';
+      Alert.alert('Erreur de connexion', message);
     } finally {
       setIsLoading(false);
     }
@@ -116,4 +121,6 @@ export default function LoginScreen({ navigation }: any) {
       </ScrollView>
     </KeyboardAvoidingView>
   );
-}
+};
+
+export default LoginScreen;

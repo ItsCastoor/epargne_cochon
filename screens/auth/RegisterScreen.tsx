@@ -1,8 +1,12 @@
 import React, { useState } from 'react';
 import { View, TextInput, TouchableOpacity, Text, KeyboardAvoidingView, Platform, ScrollView, Alert } from 'react-native';
+import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useAuth } from '@/lib/AuthContext';
+import { AuthStackParamList } from '@/lib/navigation';
 
-export default function RegisterScreen({ navigation }: any) {
+type Props = NativeStackScreenProps<AuthStackParamList, 'Register'>;
+
+const RegisterScreen: React.FC<Props> = ({ navigation }) => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [firstName, setFirstName] = useState('');
@@ -10,7 +14,7 @@ export default function RegisterScreen({ navigation }: any) {
   const [isLoading, setIsLoading] = useState(false);
   const { register } = useAuth();
 
-  const handleRegister = async () => {
+  const handleRegister = async (): Promise<void> => {
     if (!email || !password || !firstName || !lastName) {
       Alert.alert('Erreur', 'Veuillez remplir tous les champs');
       return;
@@ -24,8 +28,9 @@ export default function RegisterScreen({ navigation }: any) {
     setIsLoading(true);
     try {
       await register(email, password, firstName, lastName);
-    } catch (error: any) {
-      Alert.alert('Erreur d\'inscription', error.message || 'Une erreur s\'est produite');
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Une erreur s\'est produite';
+      Alert.alert('Erreur d\'inscription', message);
     } finally {
       setIsLoading(false);
     }
@@ -169,4 +174,6 @@ export default function RegisterScreen({ navigation }: any) {
       </ScrollView>
     </KeyboardAvoidingView>
   );
-}
+};
+
+export default RegisterScreen;

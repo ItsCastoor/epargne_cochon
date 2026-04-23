@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import * as authLib from '@/lib/auth';
 import { login as apiLogin, register as apiRegister } from '@/lib/api';
+import { logger } from '@/lib/logger';
 
 interface AuthContextType {
   user: authLib.User | null;
@@ -13,6 +14,7 @@ interface AuthContextType {
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
+const MODULE = 'AuthContext';
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<authLib.User | null>(null);
@@ -25,8 +27,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       try {
         const savedToken = await authLib.getToken();
         setTokenState(savedToken);
+        if (savedToken) {
+          await logger.info(MODULE, 'Token trouvé au chargement');
+        }
       } catch (error) {
-        console.error('[Auth] Erreur lors du chargement du token:', error);
+        const err = error instanceof Error ? error : new Error(String(error));
+        await logger.error(MODULE, 'Erreur lors du chargement du token', err);
       } finally {
         setIsLoading(false);
       }
@@ -35,89 +41,94 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     initAuth();
   }, []);
 
-  const login = async (email: string, password: string) => {
+  const login = async (email: string, password: string): Promise<void> => {
     try {
       const response = await apiLogin(email, password);
 
       // Gérer différents formats de réponse API
-      let user, token;
+      let user: authLib.User | undefined;
+      let token: string | undefined;
 
-      console.log('[Auth] Réponse login reçue:', response);
+      await logger.info(MODULE, 'Réponse login reçue', { email });
 
-      if (response.data && response.data.user) {
+      if (response.data && (response.data as Record<string, unknown>).user) {
         // Format: { data: { user: {...}, token: "..." } }
-        user = response.data.user;
-        token = response.data.token || response.data.accessToken;
-      } else if (response.user) {
+        user = (response.data as { user: authLib.User }).user;
+        token = (response.data as { token?: string; accessToken?: string }).token || (response.data as { accessToken?: string }).accessToken;
+      } else if ((response as { user?: authLib.User }).user) {
         // Format: { user: {...}, token: "..." }
-        user = response.user;
-        token = response.token || response.accessToken;
+        user = (response as { user: authLib.User }).user;
+        token = (response as { token?: string; accessToken?: string }).token || (response as { accessToken?: string }).accessToken;
       } else {
-        console.error('[Auth] Format réponse non reconnu:', response);
+        await logger.warn(MODULE, 'Format réponse non reconnu', { response });
         throw new Error('Format de réponse API non reconnu');
       }
 
       if (!token) {
-        console.error('[Auth] Pas de token dans la réponse:', response);
+        await logger.error(MODULE, 'Pas de token dans la réponse', undefined, { response });
         throw new Error('Aucun token retourné par l\'API');
       }
 
       await authLib.setToken(token);
       setTokenState(token);
-      setUser(user);
-      console.log('[Auth] Connexion réussie, token:', token.substring(0, 20) + '...');
-    } catch (error: any) {
-      console.error('[Auth] Erreur de connexion:', error);
-      throw error;
+      setUser(user || null);
+      await logger.info(MODULE, 'Connexion réussie');
+    } catch (error) {
+      const err = error instanceof Error ? error : new Error(String(error));
+      await logger.error(MODULE, 'Erreur de connexion', err, { email });
+      throw err;
     }
   };
 
-  const register = async (email: string, password: string, firstName: string, lastName: string) => {
+  const register = async (email: string, password: string, firstName: string, lastName: string): Promise<void> => {
     try {
       const response = await apiRegister(email, password, firstName, lastName);
 
       // Gérer différents formats de réponse API
-      let user, token;
+      let user: authLib.User | undefined;
+      let token: string | undefined;
 
-      console.log('[Auth] Réponse register reçue:', response);
+      await logger.info(MODULE, 'Réponse register reçue', { email, firstName, lastName });
 
-      if (response.data && response.data.user) {
+      if (response.data && (response.data as Record<string, unknown>).user) {
         // Format: { data: { user: {...}, token: "..." } }
-        user = response.data.user;
-        token = response.data.token || response.data.accessToken;
-      } else if (response.user) {
+        user = (response.data as { user: authLib.User }).user;
+        token = (response.data as { token?: string; accessToken?: string }).token || (response.data as { accessToken?: string }).accessToken;
+      } else if ((response as { user?: authLib.User }).user) {
         // Format: { user: {...}, token: "..." }
-        user = response.user;
-        token = response.token || response.accessToken;
+        user = (response as { user: authLib.User }).user;
+        token = (response as { token?: string; accessToken?: string }).token || (response as { accessToken?: string }).accessToken;
       } else {
-        console.error('[Auth] Format réponse non reconnu:', response);
+        await logger.warn(MODULE, 'Format réponse non reconnu', { response });
         throw new Error('Format de réponse API non reconnu');
       }
 
       if (!token) {
-        console.error('[Auth] Pas de token dans la réponse:', response);
+        await logger.error(MODULE, 'Pas de token dans la réponse', undefined, { response });
         throw new Error('Aucun token retourné par l\'API');
       }
 
       await authLib.setToken(token);
       setTokenState(token);
-      setUser(user);
-      console.log('[Auth] Inscription réussie');
-    } catch (error: any) {
-      console.error('[Auth] Erreur d\'inscription:', error);
-      throw error;
+      setUser(user || null);
+      await logger.info(MODULE, 'Inscription réussie');
+    } catch (error) {
+      const err = error instanceof Error ? error : new Error(String(error));
+      await logger.error(MODULE, 'Erreur d\'inscription', err, { email, firstName, lastName });
+      throw err;
     }
   };
 
-  const logout = async () => {
+  const logout = async (): Promise<void> => {
     try {
       await authLib.removeToken();
       setTokenState(null);
       setUser(null);
-      console.log('[Auth] Déconnexion réussie');
+      await logger.info(MODULE, 'Déconnexion réussie');
     } catch (error) {
-      console.error('[Auth] Erreur de déconnexion:', error);
-      throw error;
+      const err = error instanceof Error ? error : new Error(String(error));
+      await logger.error(MODULE, 'Erreur de déconnexion', err);
+      throw err;
     }
   };
 

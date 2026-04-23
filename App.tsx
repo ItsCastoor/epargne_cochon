@@ -5,6 +5,8 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { getToken } from '@/lib/auth';
 import { AuthProvider, useAuth } from '@/lib/AuthContext';
+import { logger } from '@/lib/logger';
+import { AuthStackParamList, AppStackParamList } from '@/lib/navigation';
 
 // Screens
 import LoginScreen from '@/screens/auth/LoginScreen';
@@ -13,8 +15,9 @@ import DashboardScreen from '@/screens/DashboardScreen';
 import AccountsListScreen from '@/screens/accounts/AccountsListScreen';
 import NotificationsScreen from '@/screens/NotificationsScreen';
 
-const Stack = createNativeStackNavigator();
-const Tab = createBottomTabNavigator();
+const Stack = createNativeStackNavigator<AuthStackParamList>();
+const Tab = createBottomTabNavigator<AppStackParamList>();
+const MODULE = 'App';
 
 // Auth Stack
 function AuthStack() {
@@ -85,9 +88,10 @@ function RootNavigator() {
       try {
         const token = await getToken();
         setIsAuthenticated(!!token);
-        console.log('[RootNav] Auth status:', !!token);
+        await logger.info(MODULE, `Auth status: ${!!token}`);
       } catch (error) {
-        console.error('[RootNav] Auth check error:', error);
+        const err = error instanceof Error ? error : new Error(String(error));
+        await logger.error(MODULE, 'Auth check error', err);
       } finally {
         setIsLoading(false);
       }
@@ -113,6 +117,26 @@ function RootNavigator() {
 
 // Main App with AuthProvider
 export default function App() {
+  const [loggerReady, setLoggerReady] = useState(false);
+
+  useEffect(() => {
+    const initLogger = async () => {
+      await logger.initialize();
+      await logger.info(MODULE, 'Application démarrée');
+      setLoggerReady(true);
+    };
+
+    initLogger();
+  }, []);
+
+  if (!loggerReady) {
+    return (
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#fff' }}>
+        <ActivityIndicator size="large" color="#2563eb" />
+      </View>
+    );
+  }
+
   return (
     <AuthProvider>
       <RootNavigator />

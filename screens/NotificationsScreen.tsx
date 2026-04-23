@@ -1,6 +1,9 @@
 import React, { useEffect, useState } from 'react';
 import { View, Text, FlatList, ActivityIndicator } from 'react-native';
+import { BottomTabScreenProps } from '@react-navigation/bottom-tabs';
 import { getNotifications } from '@/lib/api';
+import { logger } from '@/lib/logger';
+import { AppStackParamList } from '@/lib/navigation';
 
 interface Notification {
   id: string;
@@ -10,7 +13,11 @@ interface Notification {
   createdAt: string;
 }
 
-export default function NotificationsScreen() {
+const MODULE = 'NotificationsScreen';
+
+type Props = BottomTabScreenProps<AppStackParamList, 'NotificationsTab'>;
+
+const NotificationsScreen: React.FC<Props> = () => {
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -18,13 +25,17 @@ export default function NotificationsScreen() {
     loadNotifications();
   }, []);
 
-  const loadNotifications = async () => {
+  const loadNotifications = async (): Promise<void> => {
     try {
       setIsLoading(true);
+      await logger.info(MODULE, 'Chargement des notifications');
       const data = await getNotifications();
-      setNotifications(Array.isArray(data) ? data : data.data || []);
+      const notifList = Array.isArray(data) ? data : (data as { data: Notification[] }).data || [];
+      setNotifications(notifList);
+      await logger.info(MODULE, `${notifList.length} notifications chargées`);
     } catch (error) {
-      console.error('Erreur:', error);
+      const err = error instanceof Error ? error : new Error(String(error));
+      await logger.error(MODULE, 'Erreur lors du chargement des notifications', err);
     } finally {
       setIsLoading(false);
     }
@@ -59,5 +70,7 @@ export default function NotificationsScreen() {
       )}
     </View>
   );
-}
+};
+
+export default NotificationsScreen;
 
