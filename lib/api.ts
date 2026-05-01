@@ -2,8 +2,20 @@ import { getToken } from './auth';
 import { logger } from './logger';
 
 // lib/api.ts - Client API pour communiquer avec l'API Express
-const API_URL = process.env.REACT_APP_API_URL || 'https://apiepargne.tpareschi.eu';
+// Sur Expo, les variables d'env doivent commencer par EXPO_PUBLIC_
+const API_URL = process.env.EXPO_PUBLIC_API_URL || process.env.REACT_APP_API_URL || 'https://apiepargne.tpareschi.eu';
 const MODULE = 'API';
+
+// ⚠️ IMPORTANT: L'API doit retourner les en-têtes CORS corrects
+// Si vous voyez "Failed to fetch", c'est que le backend n'envoie pas:
+//   Access-Control-Allow-Origin: http://localhost:8081
+//   Access-Control-Allow-Methods: GET, POST, PUT, PATCH, DELETE
+//   Access-Control-Allow-Headers: Content-Type, Authorization
+//
+// Solution pour le développement: Utiliser un proxy CORS
+// https://cors-anywhere.herokuapp.com/ ou équivalent
+//
+// Solution définitive: Configurer le backend avec les bons headers CORS
 
 interface ApiHeaders {
   'Content-Type': string;
@@ -11,6 +23,7 @@ interface ApiHeaders {
 }
 
 export interface ApiResponse<T = unknown> {
+  data?: T;
   error?: string;
   [key: string]: unknown;
 }
@@ -31,45 +44,95 @@ export async function apiCall<T>(
     headers.Authorization = `Bearer ${token}`;
   }
 
-  await logger.debug(MODULE, `${options.method || 'GET'} ${url}`);
+  // Logs non-bloquants (fire and forget)
+  logger.debug(MODULE, `${options.method || 'GET'} ${url}`).catch(() => {});
   if (!token) {
-    await logger.warn(MODULE, 'Aucun token trouvé!');
+    logger.warn(MODULE, 'Aucun token trouvé!').catch(() => {});
   }
 
   try {
-    const response = await fetch(url, {
+    console.log(`[API] 🚀 Requête ${options.method || 'GET'} vers: ${url}`);
+    console.log(`[API] Headers:`, headers);
+    console.log(`[API] Body:`, options.body);
+    
+    const fetchOptions: RequestInit = {
       ...options,
       headers,
-    });
+    };
+    
+    // Sur web, ajouter mode CORS
+    if (typeof window !== 'undefined') {
+      fetchOptions.mode = 'cors';
+      if (!fetchOptions.credentials) {
+        fetchOptions.credentials = 'omit';
+      }
+    }
+    
+    console.log(`[API] Fetch options:`, fetchOptions);
+    
+    const response = await fetch(url, fetchOptions);
 
-    await logger.debug(MODULE, `Status: ${response.status}`, { endpoint });
+    console.log(`[API] ⬅️ Réponse reçue: ${response.status}`);
+    
+    // Log non-bloquant
+    logger.debug(MODULE, `⬅️ Réponse reçue`, {
+      status: response.status,
+      endpoint,
+      contentType: response.headers.get('content-type')
+    }).catch(() => {});
 
     if (!response.ok) {
       let error: ApiResponse;
       const contentType = response.headers.get('content-type');
+      let responseBody = '';
 
-      await logger.error(MODULE, `Erreur ${response.status}`, undefined, { endpoint, contentType });
-
-      if (contentType?.includes('application/json')) {
-        error = await response.json().catch((): ApiResponse => {
-          return { error: 'Erreur API' };
-        });
-        await logger.error(MODULE, 'Erreur API JSON', undefined, { errorResponse: error });
-      } else {
-        const text = await response.text();
-        await logger.error(MODULE, 'Erreur API non-JSON', undefined, { response: text });
-        error = { error: `Erreur API (${response.status}): Réponse non-JSON` };
+      try {
+        if (contentType?.includes('application/json')) {
+          error = await response.json();
+          responseBody = JSON.stringify(error);
+        } else {
+          responseBody = await response.text();
+          error = { error: responseBody || `HTTP ${response.status}` };
+        }
+      } catch (parseError) {
+        responseBody = '(impossible de parser la réponse)';
+        error = { error: `Erreur HTTP ${response.status}` };
       }
 
-      throw new Error(String(error.error) || `API Error: ${response.status}`);
+      const errorMessage = error.error || error.message || `HTTP ${response.status}`;
+      console.error(`[API] ❌ Erreur ${response.status}: ${errorMessage}`);
+
+      // Log d'erreur non-bloquant
+      logger.error(MODULE, `❌ Erreur ${response.status} - ${errorMessage}`, undefined, {
+        endpoint,
+        status: response.status,
+        contentType,
+        responseBody,
+        methodUsed: options.method || 'GET'
+      }).catch(() => {});
+
+      throw new Error(String(errorMessage));
     }
 
     const data = await response.json() as T;
-    await logger.debug(MODULE, `Succès ${endpoint}`);
+    console.log(`[API] ✅ Succès pour ${endpoint}`, data);
+    
+    // Log de succès non-bloquant
+    logger.debug(MODULE, `✅ Succès ${endpoint}`, {
+      endpoint,
+      status: response.status,
+      dataKeys: Object.keys(data as Record<string, unknown>).slice(0, 5)
+    }).catch(() => {});
     return data;
   } catch (error) {
     const err = error instanceof Error ? error : new Error(String(error));
-    await logger.error(MODULE, `Erreur lors de l'appel API ${endpoint}`, err, { endpoint });
+    console.error(`[API] 🔴 Exception: ${err.message}`, err);
+    
+    // Log d'exception non-bloquant
+    logger.error(MODULE, `🔴 Exception API: ${err.message}`, err, {
+      endpoint,
+      method: options.method || 'GET'
+    }).catch(() => {});
     throw err;
   }
 }
@@ -168,4 +231,3 @@ export async function deleteNotification(id: string): Promise<ApiResponse> {
     method: 'DELETE',
   });
 }
-

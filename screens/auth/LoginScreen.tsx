@@ -31,18 +31,34 @@ const LoginScreen: React.FC<Props> = ({ navigation }) => {
 
   return (
     <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>
-      <ScrollView style={{ flex: 1, backgroundColor: '#fff' }} contentContainerStyle={{ flexGrow: 1 }}>
-        <View style={{ flex: 1, justifyContent: 'center', paddingHorizontal: 24, paddingVertical: 48 }}>
-          {/* Header */}
-          <View style={{ marginBottom: 32 }}>
-            <Text style={{ fontSize: 32, fontWeight: 'bold', color: '#000', marginBottom: 8 }}>
-              💰 Épargne Cochon
-            </Text>
-            <Text style={{ fontSize: 18, color: '#666' }}>Connexion</Text>
-          </View>
+      <ScrollView style={{ flex: 1, backgroundColor: '#f9fafb' }} contentContainerStyle={{ flexGrow: 1 }}>
+        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 48 }}>
+          {/* Card Container */}
+          <View
+            style={{
+              width: '100%',
+              maxWidth: 420,
+              backgroundColor: '#fff',
+              borderRadius: 12,
+              paddingHorizontal: 32,
+              paddingVertical: 40,
+              shadowColor: '#000',
+              shadowOffset: { width: 0, height: 2 },
+              shadowOpacity: 0.1,
+              shadowRadius: 8,
+              elevation: 3,
+            }}
+          >
+            {/* Header */}
+            <View style={{ marginBottom: 32 }}>
+              <Text style={{ fontSize: 32, fontWeight: 'bold', color: '#000', marginBottom: 8 }}>
+                🐷 Épargne Cochon 🐷
+              </Text>
+              <Text style={{ fontSize: 18, color: '#666' }}>Connexion</Text>
+            </View>
 
-          {/* Form */}
-          <View style={{ gap: 16 }}>
+            {/* Form */}
+            <View style={{ gap: 16 }}>
             {/* Email Input */}
             <View>
               <Text style={{ fontSize: 14, fontWeight: '500', color: '#000', marginBottom: 8 }}>Email</Text>
@@ -109,12 +125,13 @@ const LoginScreen: React.FC<Props> = ({ navigation }) => {
               </Text>
             </TouchableOpacity>
 
-            {/* Register Link */}
-            <View style={{ flexDirection: 'row', justifyContent: 'center', marginTop: 16 }}>
-              <Text style={{ color: '#666', fontSize: 14 }}>Pas encore de compte? </Text>
-              <TouchableOpacity onPress={() => navigation?.navigate?.('Register')}>
-                <Text style={{ color: '#2563eb', fontWeight: '600', fontSize: 14 }}>S'inscrire</Text>
-              </TouchableOpacity>
+              {/* Register Link */}
+              <View style={{ flexDirection: 'row', justifyContent: 'center', marginTop: 16 }}>
+                <Text style={{ color: '#666', fontSize: 14 }}>Pas encore de compte? </Text>
+                <TouchableOpacity onPress={() => navigation?.navigate?.('Register')}>
+                  <Text style={{ color: '#2563eb', fontWeight: '600', fontSize: 14 }}>S'inscrire</Text>
+                </TouchableOpacity>
+              </View>
             </View>
           </View>
         </View>

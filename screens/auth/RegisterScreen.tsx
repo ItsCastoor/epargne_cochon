@@ -15,41 +15,75 @@ const RegisterScreen: React.FC<Props> = ({ navigation }) => {
   const { register } = useAuth();
 
   const handleRegister = async (): Promise<void> => {
+    console.log('[RegisterScreen] === handleRegister called ===');
+    
     if (!email || !password || !firstName || !lastName) {
+      console.log('[RegisterScreen] Validation failed - missing fields');
       Alert.alert('Erreur', 'Veuillez remplir tous les champs');
       return;
     }
 
     if (password.length < 6) {
+      console.log('[RegisterScreen] Validation failed - password too short');
       Alert.alert('Erreur', 'Le mot de passe doit faire au moins 6 caractères');
       return;
     }
 
+    console.log('[RegisterScreen] Validation passed, starting registration...');
     setIsLoading(true);
     try {
+      console.log('[RegisterScreen] Calling register with:', { email, firstName, lastName });
       await register(email, password, firstName, lastName);
+      
+      console.log('[RegisterScreen] Inscription réussie!');
+      Alert.alert('Succès', 'Inscription réussie! Vous êtes connecté.', [
+        {
+          text: 'OK',
+          onPress: () => {
+            console.log('[RegisterScreen] OK button pressed - auto-navigation should happen via AuthContext');
+          }
+        }
+      ]);
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Une erreur s\'est produite';
+      console.error('[RegisterScreen] Erreur d\'inscription:', message, error);
       Alert.alert('Erreur d\'inscription', message);
     } finally {
       setIsLoading(false);
+      console.log('[RegisterScreen] === handleRegister finished ===');
     }
   };
 
   return (
     <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>
-      <ScrollView style={{ flex: 1, backgroundColor: '#fff' }} contentContainerStyle={{ flexGrow: 1 }}>
-        <View style={{ flex: 1, justifyContent: 'center', paddingHorizontal: 24, paddingVertical: 48 }}>
-          {/* Header */}
-          <View style={{ marginBottom: 32 }}>
-            <Text style={{ fontSize: 32, fontWeight: 'bold', color: '#000', marginBottom: 8 }}>
-              💰 Épargne Cochon
-            </Text>
-            <Text style={{ fontSize: 18, color: '#666' }}>Inscription</Text>
-          </View>
+      <ScrollView style={{ flex: 1, backgroundColor: '#f9fafb' }} contentContainerStyle={{ flexGrow: 1 }}>
+        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 48 }}>
+          {/* Card Container */}
+          <View
+            style={{
+              width: '100%',
+              maxWidth: 420,
+              backgroundColor: '#fff',
+              borderRadius: 12,
+              paddingHorizontal: 32,
+              paddingVertical: 40,
+              shadowColor: '#000',
+              shadowOffset: { width: 0, height: 2 },
+              shadowOpacity: 0.1,
+              shadowRadius: 8,
+              elevation: 3,
+            }}
+          >
+            {/* Header */}
+            <View style={{ marginBottom: 32 }}>
+              <Text style={{ fontSize: 32, fontWeight: 'bold', color: '#000', marginBottom: 8 }}>
+                🐷 Épargne Cochon 🐷
+              </Text>
+              <Text style={{ fontSize: 18, color: '#666' }}>Inscription</Text>
+            </View>
 
-          {/* Form */}
-          <View style={{ gap: 16 }}>
+            {/* Form */}
+            <View style={{ gap: 16 }}>
             {/* First Name Input */}
             <View>
               <Text style={{ fontSize: 14, fontWeight: '500', color: '#000', marginBottom: 8 }}>Prénom</Text>
@@ -162,12 +196,13 @@ const RegisterScreen: React.FC<Props> = ({ navigation }) => {
               </Text>
             </TouchableOpacity>
 
-            {/* Login Link */}
-            <View style={{ flexDirection: 'row', justifyContent: 'center', marginTop: 16 }}>
-              <Text style={{ color: '#666', fontSize: 14 }}>Vous avez un compte? </Text>
-              <TouchableOpacity onPress={() => navigation?.navigate?.('Login')}>
-                <Text style={{ color: '#2563eb', fontWeight: '600', fontSize: 14 }}>Se connecter</Text>
-              </TouchableOpacity>
+              {/* Login Link */}
+              <View style={{ flexDirection: 'row', justifyContent: 'center', marginTop: 16 }}>
+                <Text style={{ color: '#666', fontSize: 14 }}>Vous avez un compte? </Text>
+                <TouchableOpacity onPress={() => navigation?.navigate?.('Login')}>
+                  <Text style={{ color: '#2563eb', fontWeight: '600', fontSize: 14 }}>Se connecter</Text>
+                </TouchableOpacity>
+              </View>
             </View>
           </View>
         </View>

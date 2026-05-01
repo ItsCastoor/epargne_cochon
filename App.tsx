@@ -3,7 +3,6 @@ import { View, ActivityIndicator } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
-import { getToken } from '@/lib/auth';
 import { AuthProvider, useAuth } from '@/lib/AuthContext';
 import { logger } from '@/lib/logger';
 import { AuthStackParamList, AppStackParamList } from '@/lib/navigation';
@@ -15,9 +14,9 @@ import DashboardScreen from '@/screens/DashboardScreen';
 import AccountsListScreen from '@/screens/accounts/AccountsListScreen';
 import NotificationsScreen from '@/screens/NotificationsScreen';
 
+const MODULE = 'App';
 const Stack = createNativeStackNavigator<AuthStackParamList>();
 const Tab = createBottomTabNavigator<AppStackParamList>();
-const MODULE = 'App';
 
 // Auth Stack
 function AuthStack() {
@@ -80,25 +79,7 @@ function AppTabs() {
 
 // Navigation based on auth state
 function RootNavigator() {
-  const [isLoading, setIsLoading] = useState(true);
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
-
-  useEffect(() => {
-    const checkAuth = async () => {
-      try {
-        const token = await getToken();
-        setIsAuthenticated(!!token);
-        await logger.info(MODULE, `Auth status: ${!!token}`);
-      } catch (error) {
-        const err = error instanceof Error ? error : new Error(String(error));
-        await logger.error(MODULE, 'Auth check error', err);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    checkAuth();
-  }, []);
+  const { isAuthenticated, isLoading } = useAuth();
 
   if (isLoading) {
     return (
@@ -121,9 +102,15 @@ export default function App() {
 
   useEffect(() => {
     const initLogger = async () => {
-      await logger.initialize();
-      await logger.info(MODULE, 'Application démarrée');
-      setLoggerReady(true);
+      try {
+        await logger.initialize();
+        console.log('[App] Logger initialized');
+        logger.info(MODULE, 'Application démarrée').catch(() => {});
+      } catch (error) {
+        console.error('[App] Error initializing logger:', error);
+      } finally {
+        setLoggerReady(true);
+      }
     };
 
     initLogger();

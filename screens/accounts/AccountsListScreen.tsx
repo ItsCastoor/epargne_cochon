@@ -16,7 +16,7 @@ const MODULE = 'AccountsListScreen';
 
 type Props = BottomTabScreenProps<AppStackParamList, 'AccountsTab'>;
 
-const AccountsListScreen: React.FC<Props> = ({ navigation }) => {
+const AccountsListScreen: React.FC<Props> = () => {
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -75,4 +75,3 @@ const AccountsListScreen: React.FC<Props> = ({ navigation }) => {
 };
 
 export default AccountsListScreen;
-

@@ -1,5 +1,4 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import * as FileSystem from 'expo-file-system';
 import { Platform } from 'react-native';
 
 export enum LogLevel {
@@ -21,39 +20,31 @@ export interface LogEntry {
 
 const MAX_LOGS = 1000;
 const LOGS_KEY = '@app/logs';
-const LOGS_DIR = `${FileSystem.DocumentDirectoryPath}/epargne_logs`;
-const LOGS_FILE = `${LOGS_DIR}/logs.json`;
-const LOGS_ARCHIVE_DIR = `${LOGS_DIR}/archive`;
 
 class Logger {
   private logs: LogEntry[] = [];
   private isInitialized = false;
+  private isWeb = Platform.OS === 'web';
 
   async initialize(): Promise<void> {
     try {
-      // Créer les répertoires nécessaires
-      const dirInfo = await FileSystem.getInfoAsync(LOGS_DIR);
-      if (!dirInfo.exists) {
-        await FileSystem.makeDirectoryAsync(LOGS_DIR, { intermediates: true });
-        await FileSystem.makeDirectoryAsync(LOGS_ARCHIVE_DIR, { intermediates: true });
+      let stored: string | null = null;
+
+      if (this.isWeb) {
+        // Web: utiliser localStorage
+        stored = localStorage.getItem(LOGS_KEY);
+      } else {
+        // Mobile: utiliser AsyncStorage
+        stored = await AsyncStorage.getItem(LOGS_KEY);
       }
 
-      // Charger les logs du fichier
-      const fileInfo = await FileSystem.getInfoAsync(LOGS_FILE);
-      if (fileInfo.exists) {
-        const content = await FileSystem.readAsStringAsync(LOGS_FILE);
-        this.logs = JSON.parse(content);
-      } else {
-        // Essayer de charger depuis AsyncStorage (migration)
-        const stored = await AsyncStorage.getItem(LOGS_KEY);
-        if (stored) {
-          this.logs = JSON.parse(stored);
-          await this.saveLogs();
-        }
+      if (stored) {
+        this.logs = JSON.parse(stored);
       }
 
       this.isInitialized = true;
-      console.log(`[Logger] Initialisé - Fichier: ${LOGS_FILE}`);
+      const platform = this.isWeb ? 'Web (localStorage)' : 'Mobile (AsyncStorage)';
+      console.log(`[Logger] Initialisé - ${platform} - ${this.logs.length} logs chargés`);
     } catch (error) {
       console.error('Logger initialization error:', error);
     }
@@ -63,12 +54,15 @@ class Logger {
     try {
       // Garder seulement les MAX_LOGS derniers logs
       const logsToSave = this.logs.slice(-MAX_LOGS);
+      const logsJson = JSON.stringify(logsToSave);
 
-      // Sauvegarder dans le fichier
-      await FileSystem.writeAsStringAsync(LOGS_FILE, JSON.stringify(logsToSave, null, 2));
-
-      // Aussi sauvegarder en backup dans AsyncStorage (pour sécurité)
-      await AsyncStorage.setItem(LOGS_KEY, JSON.stringify(logsToSave));
+      if (this.isWeb) {
+        // Web: utiliser localStorage
+        localStorage.setItem(LOGS_KEY, logsJson);
+      } else {
+        // Mobile: utiliser AsyncStorage
+        await AsyncStorage.setItem(LOGS_KEY, logsJson);
+      }
     } catch (error) {
       console.error('Error saving logs:', error);
     }
@@ -139,9 +133,10 @@ class Logger {
 
   async clearLogs(): Promise<void> {
     this.logs = [];
-    await AsyncStorage.removeItem(LOGS_KEY);
-    if (this.isInitialized) {
-      await FileSystem.deleteAsync(LOGS_FILE, { idempotent: true });
+    if (this.isWeb) {
+      localStorage.removeItem(LOGS_KEY);
+    } else {
+      await AsyncStorage.removeItem(LOGS_KEY);
     }
   }
 
@@ -149,38 +144,20 @@ class Logger {
     return JSON.stringify(this.logs, null, 2);
   }
 
-  async archiveLogs(): Promise<string> {
-    try {
-      const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-      const archiveFile = `${LOGS_ARCHIVE_DIR}/logs-${timestamp}.json`;
-      const content = JSON.stringify(this.logs, null, 2);
-      await FileSystem.writeAsStringAsync(archiveFile, content);
-      await this.clearLogs();
-      return archiveFile;
-    } catch (error) {
-      throw new Error(`Error archiving logs: ${error}`);
-    }
-  }
-
   async getLogsFilePath(): Promise<string> {
-    return LOGS_FILE;
+    if (this.isWeb) {
+      return 'localStorage (browser)';
+    }
+    return `AsyncStorage:${LOGS_KEY}`;
   }
 
   async getLogsFileContent(): Promise<string> {
-    try {
-      const fileInfo = await FileSystem.getInfoAsync(LOGS_FILE);
-      if (fileInfo.exists) {
-        return await FileSystem.readAsStringAsync(LOGS_FILE);
-      }
-      return JSON.stringify([]);
-    } catch (error) {
-      throw new Error(`Error reading logs file: ${error}`);
-    }
+    return this.exportLogs();
   }
 
   async downloadLogs(): Promise<void> {
     try {
-      if (Platform.OS === 'web') {
+      if (this.isWeb) {
         // Sur web: Créer un Blob et télécharger
         const content = JSON.stringify(this.logs, null, 2);
         const blob = new Blob([content], { type: 'application/json' });
@@ -192,13 +169,14 @@ class Logger {
         a.click();
         document.body.removeChild(a);
         URL.revokeObjectURL(url);
+        await this.info('Logger', 'Logs téléchargés avec succès');
       } else {
-        // Sur mobile: Archiver les logs
-        const archivePath = await this.archiveLogs();
-        console.log(`📁 Logs archivés: ${archivePath}`);
+        // Sur mobile: Les logs sont déjà stockés
+        await this.info('Logger', `Logs stockés (${this.logs.length} entrées)`);
       }
     } catch (error) {
-      throw new Error(`Error downloading logs: ${error}`);
+      const err = error instanceof Error ? error : new Error(String(error));
+      await this.error('Logger', 'Error downloading logs', err);
     }
   }
 }
