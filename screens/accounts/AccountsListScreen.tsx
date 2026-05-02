@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, TouchableOpacity, FlatList, ActivityIndicator, Alert } from 'react-native';
+import { View, Text, TouchableOpacity, FlatList, ActivityIndicator, Alert, useWindowDimensions, ScrollView } from 'react-native';
 import { BottomTabScreenProps } from '@react-navigation/bottom-tabs';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { getSharedAccounts } from '@/lib/api';
@@ -19,8 +19,10 @@ type Props = BottomTabScreenProps<TabParamList, 'AccountsTab'>;
 
 const AccountsListScreen: React.FC<Props> = () => {
   const navigation = useNavigation<BottomTabScreenProps<TabParamList, 'AccountsTab'>['navigation']>();
+  const { width } = useWindowDimensions();
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const isWebLayout = width > 768;
 
   useEffect(() => {
     loadAccounts();
@@ -80,34 +82,112 @@ const AccountsListScreen: React.FC<Props> = () => {
   };
 
   return (
-    <View style={{ flex: 1, backgroundColor: '#fff', paddingHorizontal: 24, paddingVertical: 24 }}>
-      <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
-        <Text style={{ fontSize: 20, fontWeight: 'bold', color: '#000' }}>Comptes</Text>
-        <TouchableOpacity onPress={handleCreateAccount} style={{ backgroundColor: '#2563eb', paddingHorizontal: 12, paddingVertical: 8, borderRadius: 6 }}>
-          <Text style={{ color: '#fff', fontWeight: '600', fontSize: 14 }}>+ Créer</Text>
-        </TouchableOpacity>
+    <View style={{ flex: 1, backgroundColor: '#f5f5f5' }}>
+      {/* Header */}
+      <View style={{
+        backgroundColor: '#7c3aed',
+        paddingHorizontal: 24,
+        paddingVertical: 24,
+        paddingTop: 48,
+        borderBottomLeftRadius: 20,
+        borderBottomRightRadius: 20,
+        shadowColor: '#000',
+        shadowOpacity: 0.1,
+        shadowRadius: 10,
+        elevation: 5,
+      }}>
+        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+          <Text style={{ fontSize: 24, fontWeight: 'bold', color: '#fff' }}>💼 Mes comptes</Text>
+          <TouchableOpacity
+            onPress={handleCreateAccount}
+            style={{ backgroundColor: '#06b6d4', paddingHorizontal: 12, paddingVertical: 8, borderRadius: 6 }}
+          >
+            <Text style={{ color: '#fff', fontWeight: '600', fontSize: 14 }}>➕ Nouveau</Text>
+          </TouchableOpacity>
+        </View>
       </View>
 
-      {isLoading ? (
-        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
-          <ActivityIndicator size="large" color="#2563eb" />
-        </View>
-      ) : accounts.length === 0 ? (
-        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
-          <Text style={{ color: '#666', fontSize: 16 }}>Aucun compte</Text>
-        </View>
-      ) : (
-        <FlatList
-          data={accounts}
-          keyExtractor={(item) => item.id}
-          renderItem={({ item }) => (
-            <TouchableOpacity onPress={() => handleAccountDetail(item.id)} style={{ backgroundColor: '#fff', borderWidth: 1, borderColor: '#e5e7eb', borderRadius: 8, padding: 16, marginBottom: 16 }}>
-              <Text style={{ fontSize: 18, fontWeight: '600', color: '#000' }}>{item.name}</Text>
-              <Text style={{ fontSize: 14, color: '#666', marginTop: 4 }}>{item.description}</Text>
-            </TouchableOpacity>
-          )}
-        />
-      )}
+      {/* Content */}
+      <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingHorizontal: isWebLayout ? 32 : 16, paddingVertical: 24 }}>
+        {isLoading ? (
+          <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', minHeight: 300 }}>
+            <ActivityIndicator size="large" color="#7c3aed" />
+          </View>
+        ) : accounts.length === 0 ? (
+          <View style={{
+            flex: 1,
+            justifyContent: 'center',
+            alignItems: 'center',
+            minHeight: 300,
+            backgroundColor: '#ede9fe',
+            borderRadius: 12,
+            paddingHorizontal: 24,
+          }}>
+            <Text style={{ color: '#5b21b6', fontSize: 16, textAlign: 'center', fontWeight: '600' }}>
+              📊 Aucun compte encore\n\nCréez votre premiere épargne !
+            </Text>
+          </View>
+        ) : (
+          <View style={{ flexDirection: isWebLayout ? 'row' : 'column', flexWrap: 'wrap', gap: 16 }}>
+            {accounts.map((item) => (
+              <TouchableOpacity
+                key={item.id}
+                onPress={() => handleAccountDetail(item.id)}
+                style={{
+                  width: isWebLayout ? '48%' : '100%',
+                  backgroundColor: '#fff',
+                  borderWidth: 2,
+                  borderColor: '#7c3aed',
+                  borderRadius: 12,
+                  padding: 16,
+                  shadowColor: '#000',
+                  shadowOpacity: 0.08,
+                  shadowRadius: 8,
+                  elevation: 3,
+                }}
+              >
+                <View style={{
+                  flexDirection: 'row',
+                  justifyContent: 'space-between',
+                  alignItems: 'flex-start',
+                  marginBottom: 8,
+                }}>
+                  <View style={{ flex: 1 }}>
+                    <Text style={{ fontSize: 18, fontWeight: '700', color: '#7c3aed' }}>
+                      {item.name}
+                    </Text>
+                    <Text style={{ fontSize: 12, color: '#999', marginTop: 4 }}>
+                      {item.description}
+                    </Text>
+                  </View>
+                  <Text style={{ fontSize: 24 }}>💰</Text>
+                </View>
+
+                {/* Badge devise */}
+                <View style={{
+                  display: 'flex',
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  marginTop: 12,
+                  backgroundColor: '#f3e8ff',
+                  paddingHorizontal: 8,
+                  paddingVertical: 4,
+                  borderRadius: 6,
+                  alignSelf: 'flex-start',
+                }}>
+                  <Text style={{
+                    fontSize: 12,
+                    fontWeight: '600',
+                    color: '#7c3aed',
+                  }}>
+                    💱 {item.currency}
+                  </Text>
+                </View>
+              </TouchableOpacity>
+            ))}
+          </View>
+        )}
+      </ScrollView>
     </View>
   );
 };

@@ -133,7 +133,7 @@ const AccountDetailScreen: React.FC<Props> = ({ route, navigation }) => {
     <ScrollView style={{ flex: 1, backgroundColor: '#fff' }}>
       {/* Header */}
       <View style={{ backgroundColor: '#2563eb', paddingHorizontal: 24, paddingVertical: 24, paddingTop: 48 }}>
-        <Text style={{ color: '#fff', fontSize: 14 }}>Compte d\'épargne</Text>
+        <Text style={{ color: '#fff', fontSize: 14 }}>Compte d'épargne</Text>
         <Text style={{ color: '#fff', fontSize: 28, fontWeight: 'bold', marginTop: 8 }}>{account.name}</Text>
         {account.description && (
           <Text style={{ color: '#cffafe', fontSize: 14, marginTop: 8 }}>{account.description}</Text>

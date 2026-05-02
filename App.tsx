@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { View, ActivityIndicator } from 'react-native';
+import { View, ActivityIndicator, Text } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
@@ -40,12 +40,15 @@ function AppTabs() {
   return (
     <Tab.Navigator
       screenOptions={{
-        headerShown: true,
+        headerShown: false,
         tabBarActiveTintColor: '#2563eb',
         tabBarInactiveTintColor: '#9ca3af',
         tabBarStyle: {
           borderTopColor: '#e5e7eb',
           borderTopWidth: 1,
+          backgroundColor: '#fff',
+          paddingTop: 8,
+          paddingBottom: 8,
         },
       }}
     >
@@ -55,6 +58,7 @@ function AppTabs() {
         options={{
           title: 'Tableau de bord',
           tabBarLabel: 'Accueil',
+          tabBarIcon: () => <Text style={{ fontSize: 20 }}>🏠</Text>,
           headerTitleStyle: { fontSize: 18, fontWeight: '600' },
         }}
       />
@@ -64,6 +68,7 @@ function AppTabs() {
         options={{
           title: 'Comptes',
           tabBarLabel: 'Comptes',
+          tabBarIcon: () => <Text style={{ fontSize: 20 }}>💼</Text>,
           headerTitleStyle: { fontSize: 18, fontWeight: '600' },
         }}
       />
@@ -73,6 +78,7 @@ function AppTabs() {
         options={{
           title: 'Notifications',
           tabBarLabel: 'Notifications',
+          tabBarIcon: () => <Text style={{ fontSize: 20 }}>🔔</Text>,
           headerTitleStyle: { fontSize: 18, fontWeight: '600' },
         }}
       />

@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, TouchableOpacity, FlatList, ActivityIndicator, Alert } from 'react-native';
+import { View, Text, TouchableOpacity, FlatList, ActivityIndicator, Alert, useWindowDimensions, ScrollView } from 'react-native';
 import { BottomTabScreenProps } from '@react-navigation/bottom-tabs';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { useAuth } from '@/lib/AuthContext';
@@ -24,8 +24,13 @@ type Props = BottomTabScreenProps<TabParamList, 'DashboardTab'>;
 const DashboardScreen: React.FC<Props> = () => {
   const { logout, user } = useAuth();
   const navigation = useNavigation<BottomTabScreenProps<TabParamList, 'DashboardTab'>['navigation']>();
+  const { width } = useWindowDimensions();
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+
+  // Déterminer si c'est web (large) ou mobile
+  const isWebLayout = width > 768;
+  const cardWidth = isWebLayout ? width * 0.4 : '100%';
 
   useEffect(() => {
     loadAccounts();
@@ -95,50 +100,107 @@ const DashboardScreen: React.FC<Props> = () => {
   };
 
   return (
-    <View style={{ flex: 1, backgroundColor: '#fff' }}>
-      <View style={{ backgroundColor: '#2563eb', paddingHorizontal: 24, paddingVertical: 32, paddingTop: 48 }}>
+    <View style={{ flex: 1, backgroundColor: '#f5f5f5' }}>
+      {/* Header coloré */}
+      <View style={{
+        backgroundColor: '#1e40af',
+        paddingHorizontal: 24,
+        paddingVertical: 32,
+        paddingTop: 48,
+        borderBottomLeftRadius: 20,
+        borderBottomRightRadius: 20,
+        shadowColor: '#000',
+        shadowOpacity: 0.1,
+        shadowRadius: 10,
+        elevation: 5,
+      }}>
         <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
           <View>
-            <Text style={{ color: '#fff', fontSize: 14 }}>Bienvenue</Text>
-            <Text style={{ color: '#fff', fontSize: 20, fontWeight: 'bold' }}>
+            <Text style={{ color: '#e0e7ff', fontSize: 14 }}>Bienvenue 👋</Text>
+            <Text style={{ color: '#fff', fontSize: 20, fontWeight: 'bold', marginTop: 4 }}>
               {user?.firstName} {user?.lastName}
             </Text>
           </View>
-          <TouchableOpacity onPress={handleLogout} style={{ backgroundColor: '#1d4ed8', paddingHorizontal: 16, paddingVertical: 8, borderRadius: 6 }}>
-            <Text style={{ color: '#fff', fontWeight: '600', fontSize: 14 }}>Déconnexion</Text>
+          <TouchableOpacity onPress={handleLogout} style={{ backgroundColor: '#dc2626', paddingHorizontal: 12, paddingVertical: 8, borderRadius: 6 }}>
+            <Text style={{ color: '#fff', fontWeight: '600', fontSize: 12 }}>🚪 Déconnexion</Text>
           </TouchableOpacity>
         </View>
       </View>
 
-      <View style={{ flex: 1, paddingHorizontal: 24, paddingVertical: 24 }}>
+      {/* Content */}
+      <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingHorizontal: isWebLayout ? 32 : 16, paddingVertical: 24 }}>
         <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
-          <Text style={{ fontSize: 20, fontWeight: 'bold', color: '#000' }}>Vos comptes</Text>
-          <TouchableOpacity onPress={handleCreateAccount} style={{ backgroundColor: '#2563eb', paddingHorizontal: 12, paddingVertical: 8, borderRadius: 6 }}>
-            <Text style={{ color: '#fff', fontWeight: '600', fontSize: 14 }}>+ Créer</Text>
+          <Text style={{ fontSize: isWebLayout ? 24 : 20, fontWeight: 'bold', color: '#000' }}>💰 Vos comptes</Text>
+          <TouchableOpacity onPress={handleCreateAccount} style={{ backgroundColor: '#059669', paddingHorizontal: 12, paddingVertical: 8, borderRadius: 6 }}>
+            <Text style={{ color: '#fff', fontWeight: '600', fontSize: 14 }}>➕ Créer</Text>
           </TouchableOpacity>
         </View>
 
         {isLoading ? (
-          <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+          <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', minHeight: 200 }}>
             <ActivityIndicator size="large" color="#2563eb" />
           </View>
         ) : accounts.length === 0 ? (
-          <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
-            <Text style={{ color: '#666', fontSize: 16 }}>Aucun compte pour le moment</Text>
+          <View style={{
+            flex: 1,
+            justifyContent: 'center',
+            alignItems: 'center',
+            minHeight: 200,
+            backgroundColor: '#fef3c7',
+            borderRadius: 12,
+            paddingHorizontal: 24,
+          }}>
+            <Text style={{ color: '#92400e', fontSize: 16, textAlign: 'center' }}>
+              📭 Aucun compte pour le moment\n\nCommencez en créant votre premier compte !
+            </Text>
           </View>
         ) : (
-           <FlatList
-             data={accounts}
-             keyExtractor={(item) => item.id}
-             renderItem={({ item }) => (
-               <TouchableOpacity onPress={() => handleAccountDetail(item.id)} style={{ backgroundColor: '#fff', borderWidth: 1, borderColor: '#e5e7eb', borderRadius: 8, padding: 16, marginBottom: 16 }}>
-                 <Text style={{ fontSize: 18, fontWeight: '600', color: '#000' }}>{item.name}</Text>
-                 <Text style={{ fontSize: 14, color: '#666', marginTop: 4 }}>{item.description}</Text>
-               </TouchableOpacity>
-             )}
-           />
+          <View style={{ flexDirection: isWebLayout ? 'row' : 'column', flexWrap: 'wrap', gap: 16 }}>
+            {accounts.map((item) => (
+              <TouchableOpacity
+                key={item.id}
+                onPress={() => handleAccountDetail(item.id)}
+                style={{
+                  width: isWebLayout ? '48%' : '100%',
+                  backgroundColor: '#fff',
+                  borderWidth: 1,
+                  borderColor: '#e5e7eb',
+                  borderRadius: 12,
+                  padding: 16,
+                  shadowColor: '#000',
+                  shadowOpacity: 0.05,
+                  shadowRadius: 8,
+                  elevation: 2,
+                }}
+              >
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                  <View style={{ flex: 1 }}>
+                    <Text style={{ fontSize: 18, fontWeight: '700', color: '#1e40af', marginBottom: 4 }}>
+                      {item.name}
+                    </Text>
+                    <Text style={{ fontSize: 13, color: '#666', marginTop: 2 }}>{item.description}</Text>
+                  </View>
+                  <Text style={{ fontSize: 24 }}>💎</Text>
+                </View>
+
+                {/* Mini progress */}
+                <View style={{ marginTop: 12, backgroundColor: '#f3f4f6', height: 4, borderRadius: 2, overflow: 'hidden' }}>
+                  <View
+                    style={{
+                      backgroundColor: '#2563eb',
+                      height: '100%',
+                      width: `${Math.min((item.currentAmount / item.targetAmount) * 100, 100)}%`,
+                    }}
+                  />
+                </View>
+                <Text style={{ fontSize: 11, color: '#9ca3af', marginTop: 8 }}>
+                  {item.currentAmount.toFixed(0)} / {item.targetAmount.toFixed(0)} {item.currency}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
         )}
-      </View>
+      </ScrollView>
     </View>
   );
 };
