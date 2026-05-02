@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, TextInput, TouchableOpacity, Text, KeyboardAvoidingView, Platform, ScrollView, Alert } from 'react-native';
+import { View, TextInput, TouchableOpacity, Text, KeyboardAvoidingView, Platform, ScrollView, Alert, Image } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useAuth } from '@/lib/AuthContext';
 import { AuthStackParamList } from '@/lib/navigation';
@@ -72,12 +72,13 @@ const RegisterScreen: React.FC<Props> = ({ navigation }) => {
             }}
           >
             {/* Header */}
-            <View style={{ marginBottom: 32 }}>
-              <Text style={{ fontSize: 32, fontWeight: 'bold', color: '#000', marginBottom: 8 }}>
-                🐷 Épargne Cochon 🐷
-              </Text>
-              <Text style={{ fontSize: 18, color: '#666' }}>Inscription</Text>
-            </View>
+              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 16, marginBottom: 8 }}>
+                  <Image source={require('@/public/tirelire.png')} style={{ width: 80, height: 80 }} />
+                  <View>
+                      <Text style={{ fontSize: 32, fontWeight: 'bold', color: '#000', textAlign: 'center' }}>Épargne</Text>
+                  </View>
+                  <Image source={require('@/public/tirelire.png')} style={{ width: 80, height: 80 }} />
+              </View>
 
             {/* Form */}
             <View style={{ gap: 16 }}>

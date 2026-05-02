@@ -151,7 +151,7 @@ const DashboardScreen: React.FC<Props> = () => {
             paddingHorizontal: 24,
           }}>
             <Text style={{ color: '#92400e', fontSize: 16, textAlign: 'center' }}>
-              📭 Aucun compte pour le moment\n\nCommencez en créant votre premier compte !
+              📭 Aucun compte pour le moment{'\n\n'}Commencez en créant votre premier compte !
             </Text>
           </View>
         ) : (

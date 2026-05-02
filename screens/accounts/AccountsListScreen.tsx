@@ -124,7 +124,7 @@ const AccountsListScreen: React.FC<Props> = () => {
             paddingHorizontal: 24,
           }}>
             <Text style={{ color: '#5b21b6', fontSize: 16, textAlign: 'center', fontWeight: '600' }}>
-              📊 Aucun compte encore\n\nCréez votre premiere épargne !
+              📊 Aucun compte encore{'\n\n'}Créez votre premiere épargne !
             </Text>
           </View>
         ) : (
