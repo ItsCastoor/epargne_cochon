@@ -16,7 +16,7 @@ const RegisterScreen: React.FC<Props> = ({ navigation }) => {
 
   const handleRegister = async (): Promise<void> => {
     console.log('[RegisterScreen] === handleRegister called ===');
-    
+
     if (!email || !password || !firstName || !lastName) {
       console.log('[RegisterScreen] Validation failed - missing fields');
       Alert.alert('Erreur', 'Veuillez remplir tous les champs');
@@ -34,7 +34,7 @@ const RegisterScreen: React.FC<Props> = ({ navigation }) => {
     try {
       console.log('[RegisterScreen] Calling register with:', { email, firstName, lastName });
       await register(email, password, firstName, lastName);
-      
+
       console.log('[RegisterScreen] Inscription réussie!');
       Alert.alert('Succès', 'Inscription réussie! Vous êtes connecté.', [
         {
