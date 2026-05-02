@@ -14,9 +14,15 @@ export type AuthStackParamList = {
   TestRegister: undefined;
 };
 
-export type AppStackParamList = {
+export type TabParamList = {
   DashboardTab: undefined;
   AccountsTab: undefined;
   NotificationsTab: undefined;
+};
+
+export type AppStackParamList = {
+  HomeStack: undefined;
+  CreateAccount: undefined;
+  AccountDetail: { id: string };
 };
 

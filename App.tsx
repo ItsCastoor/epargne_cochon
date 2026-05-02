@@ -5,7 +5,7 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { AuthProvider, useAuth } from '@/lib/AuthContext';
 import { logger } from '@/lib/logger';
-import { AuthStackParamList, AppStackParamList } from '@/lib/navigation';
+import { AuthStackParamList, TabParamList, AppStackParamList } from '@/lib/navigation';
 
 // Screens
 import LoginScreen from '@/screens/auth/LoginScreen';
@@ -13,26 +13,29 @@ import RegisterScreen from '@/screens/auth/RegisterScreen';
 import DashboardScreen from '@/screens/DashboardScreen';
 import AccountsListScreen from '@/screens/accounts/AccountsListScreen';
 import NotificationsScreen from '@/screens/NotificationsScreen';
+import CreateAccountScreen from '@/screens/accounts/CreateAccountScreen';
+import AccountDetailScreen from '@/screens/accounts/AccountDetailScreen';
 
 const MODULE = 'App';
-const Stack = createNativeStackNavigator<AuthStackParamList>();
-const Tab = createBottomTabNavigator<AppStackParamList>();
+const AuthStack = createNativeStackNavigator<AuthStackParamList>();
+const AppStack = createNativeStackNavigator<AppStackParamList>();
+const Tab = createBottomTabNavigator<TabParamList>();
 
 // Auth Stack
-function AuthStack() {
+function AuthStackNavigator() {
   return (
-    <Stack.Navigator
+    <AuthStack.Navigator
       screenOptions={{
         headerShown: false
       }}
     >
-      <Stack.Screen name="Login" component={LoginScreen} />
-      <Stack.Screen name="Register" component={RegisterScreen} />
-    </Stack.Navigator>
+      <AuthStack.Screen name="Login" component={LoginScreen} />
+      <AuthStack.Screen name="Register" component={RegisterScreen} />
+    </AuthStack.Navigator>
   );
 }
 
-// App Stack with Tabs
+// Tabs Navigator
 function AppTabs() {
   return (
     <Tab.Navigator
@@ -77,6 +80,36 @@ function AppTabs() {
   );
 }
 
+// App Stack with Tabs + Detail/Create screens
+function AppStackNavigator() {
+  return (
+    <AppStack.Navigator
+      screenOptions={{
+        headerShown: false,
+      }}
+    >
+      <AppStack.Screen
+        name="HomeStack"
+        component={AppTabs}
+      />
+      <AppStack.Screen
+        name="CreateAccount"
+        component={CreateAccountScreen as any}
+        options={{
+          presentation: 'card',
+        }}
+      />
+      <AppStack.Screen
+        name="AccountDetail"
+        component={AccountDetailScreen as any}
+        options={{
+          presentation: 'card',
+        }}
+      />
+    </AppStack.Navigator>
+  );
+}
+
 // Navigation based on auth state
 function RootNavigator() {
   const { isAuthenticated, isLoading } = useAuth();
@@ -91,7 +124,7 @@ function RootNavigator() {
 
   return (
     <NavigationContainer>
-      {isAuthenticated ? <AppTabs /> : <AuthStack />}
+      {isAuthenticated ? <AppStackNavigator /> : <AuthStackNavigator />}
     </NavigationContainer>
   );
 }
@@ -104,8 +137,6 @@ export default function App() {
     const initLogger = async () => {
       try {
         await logger.initialize();
-        console.log('[App] Logger initialized');
-        logger.info(MODULE, 'Application démarrée').catch(() => {});
       } catch (error) {
         console.error('[App] Error initializing logger:', error);
       } finally {

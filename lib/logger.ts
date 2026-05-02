@@ -43,8 +43,6 @@ class Logger {
       }
 
       this.isInitialized = true;
-      const platform = this.isWeb ? 'Web (localStorage)' : 'Mobile (AsyncStorage)';
-      console.log(`[Logger] Initialisé - ${platform} - ${this.logs.length} logs chargés`);
     } catch (error) {
       console.error('Logger initialization error:', error);
     }

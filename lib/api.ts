@@ -44,16 +44,11 @@ export async function apiCall<T>(
     headers.Authorization = `Bearer ${token}`;
   }
 
-  // Logs non-bloquants (fire and forget)
-  logger.debug(MODULE, `${options.method || 'GET'} ${url}`).catch(() => {});
-  if (!token) {
+   if (!token) {
     logger.warn(MODULE, 'Aucun token trouvé!').catch(() => {});
   }
 
   try {
-    console.log(`[API] 🚀 Requête ${options.method || 'GET'} vers: ${url}`);
-    console.log(`[API] Headers:`, headers);
-    console.log(`[API] Body:`, options.body);
     
     const fetchOptions: RequestInit = {
       ...options,
@@ -67,19 +62,8 @@ export async function apiCall<T>(
         fetchOptions.credentials = 'omit';
       }
     }
-    
-    console.log(`[API] Fetch options:`, fetchOptions);
-    
-    const response = await fetch(url, fetchOptions);
 
-    console.log(`[API] ⬅️ Réponse reçue: ${response.status}`);
-    
-    // Log non-bloquant
-    logger.debug(MODULE, `⬅️ Réponse reçue`, {
-      status: response.status,
-      endpoint,
-      contentType: response.headers.get('content-type')
-    }).catch(() => {});
+    const response = await fetch(url, fetchOptions);
 
     if (!response.ok) {
       let error: ApiResponse;
@@ -89,50 +73,26 @@ export async function apiCall<T>(
       try {
         if (contentType?.includes('application/json')) {
           error = await response.json();
-          responseBody = JSON.stringify(error);
         } else {
           responseBody = await response.text();
           error = { error: responseBody || `HTTP ${response.status}` };
         }
       } catch (parseError) {
-        responseBody = '(impossible de parser la réponse)';
         error = { error: `Erreur HTTP ${response.status}` };
       }
 
       const errorMessage = error.error || error.message || `HTTP ${response.status}`;
       console.error(`[API] ❌ Erreur ${response.status}: ${errorMessage}`);
 
-      // Log d'erreur non-bloquant
-      logger.error(MODULE, `❌ Erreur ${response.status} - ${errorMessage}`, undefined, {
-        endpoint,
-        status: response.status,
-        contentType,
-        responseBody,
-        methodUsed: options.method || 'GET'
-      }).catch(() => {});
-
       throw new Error(String(errorMessage));
     }
 
-    const data = await response.json() as T;
-    console.log(`[API] ✅ Succès pour ${endpoint}`, data);
-    
-    // Log de succès non-bloquant
-    logger.debug(MODULE, `✅ Succès ${endpoint}`, {
-      endpoint,
-      status: response.status,
-      dataKeys: Object.keys(data as Record<string, unknown>).slice(0, 5)
-    }).catch(() => {});
-    return data;
+    return await response.json() as T;
   } catch (error) {
     const err = error instanceof Error ? error : new Error(String(error));
     console.error(`[API] 🔴 Exception: ${err.message}`, err);
     
     // Log d'exception non-bloquant
-    logger.error(MODULE, `🔴 Exception API: ${err.message}`, err, {
-      endpoint,
-      method: options.method || 'GET'
-    }).catch(() => {});
     throw err;
   }
 }

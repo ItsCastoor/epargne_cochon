@@ -3,7 +3,7 @@ import { View, Text, FlatList, ActivityIndicator } from 'react-native';
 import { BottomTabScreenProps } from '@react-navigation/bottom-tabs';
 import { getNotifications } from '@/lib/api';
 import { logger } from '@/lib/logger';
-import { AppStackParamList } from '@/lib/navigation';
+import { TabParamList } from '@/lib/navigation';
 
 interface Notification {
   id: string;
@@ -15,7 +15,7 @@ interface Notification {
 
 const MODULE = 'NotificationsScreen';
 
-type Props = BottomTabScreenProps<AppStackParamList, 'NotificationsTab'>;
+type Props = BottomTabScreenProps<TabParamList, 'NotificationsTab'>;
 
 const NotificationsScreen: React.FC<Props> = () => {
   const [notifications, setNotifications] = useState<Notification[]>([]);

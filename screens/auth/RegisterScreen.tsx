@@ -67,11 +67,8 @@ const RegisterScreen: React.FC<Props> = ({ navigation }) => {
               borderRadius: 12,
               paddingHorizontal: 32,
               paddingVertical: 40,
-              shadowColor: '#000',
-              shadowOffset: { width: 0, height: 2 },
-              shadowOpacity: 0.1,
-              shadowRadius: 8,
-              elevation: 3,
+              borderWidth: 1,
+              borderColor: '#e5e7eb',
             }}
           >
             {/* Header */}
