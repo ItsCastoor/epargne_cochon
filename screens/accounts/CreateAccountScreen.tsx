@@ -115,11 +115,10 @@ const CreateAccountScreen: React.FC<Props> = ({ navigation }) => {
                   color: '#000',
                   fontSize: 16,
                   minHeight: 80,
-                  textAlignVertical: 'top',
                 }}
                 placeholder="Décrivez votre objectif..."
                 placeholderTextColor="#9ca3af"
-                multiline
+                multiline={true}
                 numberOfLines={4}
                 value={description}
                 onChangeText={setDescription}
