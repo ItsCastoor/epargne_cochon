@@ -158,7 +158,7 @@ const CreateAccountScreen: React.FC<Props> = ({ navigation }) => {
                   <TouchableOpacity
                     key={curr}
                     onPress={() => setCurrency(curr)}
-                    disabled={isLoading}
+                    disabled={!!isLoading}
                     style={{
                       flex: 1,
                       paddingVertical: 12,
@@ -180,7 +180,7 @@ const CreateAccountScreen: React.FC<Props> = ({ navigation }) => {
             <View style={{ gap: 12, marginTop: 24 }}>
               <TouchableOpacity
                 onPress={handleCreate}
-                disabled={isLoading}
+                disabled={!!isLoading}
                 style={{
                   width: '100%',
                   paddingVertical: 12,
@@ -200,7 +200,7 @@ const CreateAccountScreen: React.FC<Props> = ({ navigation }) => {
 
               <TouchableOpacity
                 onPress={() => navigation.goBack()}
-                disabled={isLoading}
+                disabled={!!isLoading}
                 style={{
                   width: '100%',
                   paddingVertical: 12,

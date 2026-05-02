@@ -8,7 +8,7 @@ import { logger } from '@/lib/logger';
 import { AuthStackParamList, TabParamList, AppStackParamList } from '@/lib/navigation';
 
 // Screens
-import LoginScreen from '@/screens/auth/LoginScreen';
+import LoginScreenMinimal from '@/screens/auth/LoginScreenMinimal';
 import RegisterScreen from '@/screens/auth/RegisterScreen';
 import DashboardScreen from '@/screens/DashboardScreen';
 import AccountsListScreen from '@/screens/accounts/AccountsListScreen';
@@ -29,7 +29,7 @@ function AuthStackNavigator() {
         headerShown: false
       }}
     >
-      <AuthStack.Screen name="Login" component={LoginScreen} />
+      <AuthStack.Screen name="Login" component={LoginScreenMinimal} />
       <AuthStack.Screen name="Register" component={RegisterScreen} />
     </AuthStack.Navigator>
   );

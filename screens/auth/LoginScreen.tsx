@@ -98,7 +98,7 @@ const LoginScreen: React.FC<Props> = ({ navigation }) => {
                 }}
                 placeholder="••••••••"
                 placeholderTextColor="#9ca3af"
-                secureTextEntry
+                secureTextEntry={true}
                 value={password}
                 onChangeText={setPassword}
                 editable={!isLoading}
