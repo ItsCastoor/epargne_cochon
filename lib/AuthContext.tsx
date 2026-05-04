@@ -1,7 +1,35 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import * as authLib from '@/lib/auth';
-import { login as apiLogin, register as apiRegister } from '@/lib/api';
+import { login as apiLogin, register as apiRegister, ApiResponse } from '@/lib/api';
 import { logger } from '@/lib/logger';
+
+const API_URL = process.env.EXPO_PUBLIC_API_URL || process.env.REACT_APP_API_URL || 'https://apiepargne.tpareschi.eu';
+
+/**
+ * Extrait user et token d'une réponse API
+ * Gère plusieurs formats de réponse
+ */
+function extractAuthData(response: ApiResponse): { user: authLib.User | null; token: string } {
+  let user: authLib.User | undefined;
+  let token: string | undefined;
+
+  if (response.data && (response.data as Record<string, unknown>).user) {
+    // Format: { data: { user: {...}, token: "..." } }
+    user = (response.data as { user: authLib.User }).user;
+    token = (response.data as { token?: string; accessToken?: string }).token || (response.data as { accessToken?: string }).accessToken;
+  } else if ((response as { user?: authLib.User }).user) {
+    // Format: { user: {...}, token: "..." }
+    user = (response as { user: authLib.User }).user;
+    token = (response as { token?: string; accessToken?: string }).token || (response as { accessToken?: string }).accessToken;
+  }
+
+  if (!token) {
+    console.error('[AuthContext] Pas de token dans la réponse:', response);
+    throw new Error('Aucun token retourné par l\'API');
+  }
+
+  return { user: user || null, token };
+}
 
 interface AuthContextType {
   user: authLib.User | null;
@@ -26,13 +54,42 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const initAuth = async () => {
       try {
         const savedToken = await authLib.getToken();
-        setTokenState(savedToken);
-        if (savedToken) {
-          logger.info(MODULE, 'Token trouvé au chargement').catch(() => {});
+
+        if (!savedToken) {
+          // Pas de token trouvé - c'est normal
+          setTokenState(null);
+          logger.info(MODULE, 'Aucun token trouvé au chargement').catch(() => {});
+        } else {
+          // Token trouvé, le valider en faisant une requête simple à l'API
+          try {
+            const response = await fetch(`${API_URL}/api/v1/auth/validate`, {
+              method: 'GET',
+              headers: {
+                'Authorization': `Bearer ${savedToken}`,
+                'Content-Type': 'application/json',
+              },
+            });
+
+            if (response.ok) {
+              // Token valide
+              setTokenState(savedToken);
+              logger.info(MODULE, 'Token valide trouvé au chargement').catch(() => {});
+            } else {
+              // Token invalide - le supprimer
+              await authLib.removeToken();
+              setTokenState(null);
+              logger.warn(MODULE, 'Token invalide trouvé, suppression').catch(() => {});
+            }
+          } catch (validationError) {
+            // Erreur de validation - garder le token mais logger l'erreur
+            setTokenState(savedToken);
+            logger.warn(MODULE, 'Impossible de valider le token au démarrage').catch(() => {});
+          }
         }
       } catch (error) {
         const err = error instanceof Error ? error : new Error(String(error));
         logger.error(MODULE, 'Erreur lors du chargement du token', err).catch(() => {});
+        setTokenState(null);
       } finally {
         setIsLoading(false);
       }
@@ -44,37 +101,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const login = async (email: string, password: string): Promise<void> => {
     try {
       console.log('[AuthContext] Login attempt for:', email);
-      const response = await apiLogin(email, password);
-
-      // Gérer différents formats de réponse API
-      let user: authLib.User | undefined;
-      let token: string | undefined;
+      const response: ApiResponse = await apiLogin(email, password);
 
       logger.info(MODULE, 'Réponse login reçue', { email }).catch(() => {});
 
-      if (response.data && (response.data as Record<string, unknown>).user) {
-        // Format: { data: { user: {...}, token: "..." } }
-        user = (response.data as { user: authLib.User }).user;
-        token = (response.data as { token?: string; accessToken?: string }).token || (response.data as { accessToken?: string }).accessToken;
-      } else if ((response as { user?: authLib.User }).user) {
-        // Format: { user: {...}, token: "..." }
-        user = (response as { user: authLib.User }).user;
-        token = (response as { token?: string; accessToken?: string }).token || (response as { accessToken?: string }).accessToken;
-      } else {
-        console.warn('[AuthContext] Format réponse non reconnu:', response);
-        logger.warn(MODULE, 'Format réponse non reconnu', { response }).catch(() => {});
-        throw new Error('Format de réponse API non reconnu');
-      }
-
-      if (!token) {
-        console.error('[AuthContext] Pas de token dans la réponse:', response);
-        logger.error(MODULE, 'Pas de token dans la réponse', undefined, { response }).catch(() => {});
-        throw new Error('Aucun token retourné par l\'API');
-      }
+      const { user, token } = extractAuthData(response);
 
       await authLib.setToken(token);
       setTokenState(token);
-      setUser(user || null);
+      setUser(user);
       logger.info(MODULE, 'Connexion réussie').catch(() => {});
       console.log('[AuthContext] Login successful');
     } catch (error) {
@@ -88,37 +123,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const register = async (email: string, password: string, firstName: string, lastName: string): Promise<void> => {
     try {
       console.log('[AuthContext] Register attempt for:', email);
-      const response = await apiRegister(email, password, firstName, lastName);
-
-      // Gérer différents formats de réponse API
-      let user: authLib.User | undefined;
-      let token: string | undefined;
+      const response: ApiResponse = await apiRegister(email, password, firstName, lastName);
 
       logger.info(MODULE, 'Réponse register reçue', { email, firstName, lastName }).catch(() => {});
 
-      if (response.data && (response.data as Record<string, unknown>).user) {
-        // Format: { data: { user: {...}, token: "..." } }
-        user = (response.data as { user: authLib.User }).user;
-        token = (response.data as { token?: string; accessToken?: string }).token || (response.data as { accessToken?: string }).accessToken;
-      } else if ((response as { user?: authLib.User }).user) {
-        // Format: { user: {...}, token: "..." }
-        user = (response as { user: authLib.User }).user;
-        token = (response as { token?: string; accessToken?: string }).token || (response as { accessToken?: string }).accessToken;
-      } else {
-        console.warn('[AuthContext] Format réponse non reconnu:', response);
-        logger.warn(MODULE, 'Format réponse non reconnu', { response }).catch(() => {});
-        throw new Error('Format de réponse API non reconnu');
-      }
-
-      if (!token) {
-        console.error('[AuthContext] Pas de token dans la réponse:', response);
-        logger.error(MODULE, 'Pas de token dans la réponse', undefined, { response }).catch(() => {});
-        throw new Error('Aucun token retourné par l\'API');
-      }
+      const { user, token } = extractAuthData(response);
 
       await authLib.setToken(token);
       setTokenState(token);
-      setUser(user || null);
+      setUser(user);
       logger.info(MODULE, 'Inscription réussie').catch(() => {});
       console.log('[AuthContext] Register successful, isAuthenticated:', !!token);
     } catch (error) {
@@ -162,8 +175,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 export function useAuth() {
   const context = useContext(AuthContext);
   if (context === undefined) {
-    throw new Error('useAuth must be used within an AuthProvider');
+    throw new Error('useAuth doit être utilisé à l\'intérieur d\'un AuthProvider');
   }
   return context;
 }
-

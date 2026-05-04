@@ -7,6 +7,7 @@ import { AppStackParamList } from '@/lib/navigation';
 import { getSharedAccount, deleteSharedAccount, getGoals, deleteGoal, getContributions, createContribution, inviteMember, getAccountMembers } from '@/lib/api';
 import { logger } from '@/lib/logger';
 import { ScreenHeader, CustomButton, CustomCard } from '@/components';
+import { generateColorFromId } from '@/lib/colors';
 
 type Props = NativeStackScreenProps<AppStackParamList, 'AccountDetail'>;
 
@@ -18,7 +19,7 @@ interface Account {
   currentAmount: number;
   currency: string;
   createdAt?: string;
-  members?: Array<{ id: string; email: string; role: string }>;
+  members?: Array<{ id: string; email: string; firstName: string; lastName: string; role: string }>;
 }
 
 interface Goal {
@@ -84,15 +85,15 @@ const AccountDetailScreen: React.FC<Props> = ({ route, navigation }) => {
       if (!parsedAccount) throw new Error('Format non reconnu');
 
       // Parse members from separate endpoint
-      let parsedMembers: Array<{ id: string; email: string; role: string }> = [];
+      let parsedMembers: Array<{ id: string; email: string; firstName: string; lastName: string; role: string }> = [];
       if (Array.isArray(membersData)) {
         parsedMembers = membersData;
       } else if ((membersData as Record<string, unknown>).data && Array.isArray((membersData as Record<string, unknown>).data)) {
-        parsedMembers = (membersData as Record<string, unknown>).data as Array<{ id: string; email: string; role: string }>;
+        parsedMembers = (membersData as Record<string, unknown>).data as Array<{ id: string; email: string; firstName: string; lastName: string; role: string }>;
       } else if ((membersData as Record<string, unknown>).members && Array.isArray((membersData as Record<string, unknown>).members)) {
-        parsedMembers = (membersData as Record<string, unknown>).members as Array<{ id: string; email: string; role: string }>;
+        parsedMembers = (membersData as Record<string, unknown>).members as Array<{ id: string; email: string; firstName: string; lastName: string; role: string }>;
       } else if ((membersData as Record<string, unknown>)[0]) {
-        parsedMembers = Object.values(membersData as Record<string, unknown>) as Array<{ id: string; email: string; role: string }>;
+        parsedMembers = Object.values(membersData as Record<string, unknown>) as Array<{ id: string; email: string; firstName: string; lastName: string; role: string }>;
       }
       parsedAccount.members = parsedMembers;
 
@@ -119,6 +120,7 @@ const AccountDetailScreen: React.FC<Props> = ({ route, navigation }) => {
       }
 
       setAccount(parsedAccount);
+
       setGoals(parsedGoals);
       setContributions(parsedContributions);
     } catch (error) {
@@ -207,6 +209,24 @@ const AccountDetailScreen: React.FC<Props> = ({ route, navigation }) => {
     <View style={{ backgroundColor: theme.colors.background }}>
       <ScreenHeader gradient="dashboard" title={account.name} subtitle={account.description} />
 
+      {/* Back Button */}
+      <Pressable
+        onPress={() => navigation.goBack()}
+        style={{
+          paddingHorizontal: 16,
+          paddingVertical: 12,
+          backgroundColor: theme.colors.surface,
+          borderBottomWidth: 1,
+          borderBottomColor: theme.colors.outline,
+          flexDirection: 'row',
+          alignItems: 'center',
+          gap: 8,
+        }}
+      >
+        <MaterialCommunityIcons name="chevron-left" size={24} color={theme.colors.primary} />
+        <Text style={{ color: theme.colors.primary, fontWeight: '600', fontSize: 14 }}>Retour</Text>
+      </Pressable>
+
       <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ backgroundColor: theme.colors.surface, borderBottomWidth: 1, borderBottomColor: theme.colors.outline }}>
         <View style={{ flexDirection: 'row', gap: 0}}>
           {tabs.map((tab) => (
@@ -258,6 +278,30 @@ const AccountDetailScreen: React.FC<Props> = ({ route, navigation }) => {
                 <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}><Text variant="bodyMedium" style={{ color: theme.colors.onSurfaceVariant }}>Membres</Text><Chip>{account.members?.length || 0}</Chip></View>
               </View>
             </CustomCard>
+
+            {/* Légende des contributeurs */}
+            {account.members && account.members.length > 0 && (
+              <CustomCard>
+                <View style={{ gap: 12 }}>
+                  <Text variant="titleMedium" style={{ fontWeight: '700' }}>📋 Légende des contributeurs</Text>
+                  <View style={{ gap: 8 }}>
+                    {account.members.map((member) => (
+                      <View key={member.id} style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+                        <View style={{
+                          width: 24,
+                          height: 24,
+                          borderRadius: 12,
+                          backgroundColor: generateColorFromId(member.id),
+                        }} />
+                        <Text variant="bodySmall" style={{ flex: 1, fontWeight: '500' }}>{member.firstName} {member.lastName}</Text>
+                        <Text variant="labelSmall" style={{ color: theme.colors.onSurfaceVariant }}>{member.role?.toLowerCase() === 'owner' ? 'propriétaire' : member.role}</Text>
+                      </View>
+                    ))}
+                  </View>
+                </View>
+              </CustomCard>
+            )}
+
             <CustomButton label={isDeleting ? 'Suppression...' : '🗑️ Supprimer'} onPress={handleDeleteAccount} variant="danger" loading={isDeleting} disabled={isDeleting} />
           </>
         )}
@@ -272,7 +316,7 @@ const AccountDetailScreen: React.FC<Props> = ({ route, navigation }) => {
                     {account.members.map((member) => (
                       <View key={member.id} style={{ flexDirection: 'row', justifyContent: 'space-between', paddingBottom: 8, borderBottomWidth: 1, borderBottomColor: theme.colors.outline }}>
                         <View style={{ flex: 1 }}><Text variant="bodyMedium" style={{ fontWeight: '600' }}>{member.email}</Text><Text variant="labelMedium" style={{ color: theme.colors.onSurfaceVariant }}>Rôle: {member.role?.toLowerCase() === 'owner' ? 'propriétaire' : member.role}</Text></View>
-                        <Chip>{member.role}</Chip>
+                        <Chip style={{ backgroundColor: generateColorFromId(member.id) }}>{member.role}</Chip>
                       </View>
                     ))}
                   </View>
@@ -320,17 +364,50 @@ const AccountDetailScreen: React.FC<Props> = ({ route, navigation }) => {
             {contributions.length === 0 ? (
               <CustomCard style={{ backgroundColor: theme.colors.primaryContainer }}><Text variant="bodyMedium" style={{ color: theme.colors.primary, textAlign: 'center' }}>💰 Aucune contribution</Text></CustomCard>
             ) : (
-              <View style={{ gap: 12 }}>
-                {contributions.map((contrib) => (
-                  <CustomCard key={contrib.id}>
-                    <View style={{ gap: 4 }}>
-                      <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}><Text variant="titleSmall" style={{ fontWeight: '700' }}>{contrib.amount.toFixed(2)} € {account.currency}</Text><Text variant="labelSmall" style={{ color: theme.colors.onSurfaceVariant }}>{new Date(contrib.createdAt).toLocaleDateString('fr-FR')}</Text></View>
-                      {contrib.memberEmail && <Text variant="bodySmall" style={{ color: theme.colors.onSurfaceVariant }}>Par: {contrib.memberEmail}</Text>}
-                      {contrib.description && <Text variant="bodySmall" style={{ marginTop: 6, fontStyle: 'italic' }}>{contrib.description}</Text>}
+              <>
+                {/* Légende pour contributions */}
+                {account.members && account.members.length > 0 && (
+                  <CustomCard style={{ backgroundColor: theme.colors.surface }}>
+                    <View style={{ gap: 8 }}>
+                      <Text variant="labelSmall" style={{ fontWeight: '600', color: theme.colors.onSurfaceVariant }}>📍 Couleur par contributeur:</Text>
+                      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+                        {account.members.map((member) => (
+                          <View key={member.id} style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flex: 0.48 }}>
+                            <View style={{
+                              width: 16,
+                              height: 16,
+                              borderRadius: 8,
+                              backgroundColor: generateColorFromId(member.id),
+                            }} />
+                            <Text variant="labelSmall" style={{ fontSize: 11 }}>{member.email.split('@')[0]}</Text>
+                          </View>
+                        ))}
+                      </View>
                     </View>
                   </CustomCard>
-                ))}
-              </View>
+                )}
+
+                <View style={{ gap: 12 }}>
+                  {contributions.map((contrib) => {
+                    // Trouver le membre qui a contribué
+                    const contributor = account.members?.find(m => m.email === contrib.memberEmail);
+                    const memberColor = contributor ? generateColorFromId(contributor.id) : theme.colors.primary;
+
+                    return (
+                      <CustomCard key={contrib.id} style={{ borderLeftColor: memberColor, borderLeftWidth: 4 }}>
+                        <View style={{ gap: 8 }}>
+                          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                            {contrib.memberEmail && <Text variant="titleSmall" style={{ color: memberColor, fontWeight: '700', flex: 1 }}>👤 {contrib.memberEmail}</Text>}
+                            <Text variant="titleSmall" style={{ fontWeight: '700', color: theme.colors.tertiary }}>{contrib.amount.toFixed(2)} {account.currency}</Text>
+                          </View>
+                          <Text variant="labelSmall" style={{ color: theme.colors.onSurfaceVariant }}>{new Date(contrib.createdAt).toLocaleDateString('fr-FR')}</Text>
+                          {contrib.description && <Text variant="bodySmall" style={{ marginTop: 4, fontStyle: 'italic', color: theme.colors.onSurfaceVariant }}>{contrib.description}</Text>}
+                        </View>
+                      </CustomCard>
+                    );
+                  })}
+                </View>
+              </>
             )}
           </>
         )}

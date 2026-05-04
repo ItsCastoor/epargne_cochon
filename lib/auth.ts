@@ -22,8 +22,7 @@ export async function setToken(token: string) {
 
 export async function getToken(): Promise<string | null> {
   try {
-    const token = await AsyncStorage.getItem('token');
-    return token;
+    return await AsyncStorage.getItem('token');
   } catch (error) {
     console.error('[Auth] Erreur lors de la récupération du token:', error);
     return null;

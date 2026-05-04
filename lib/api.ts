@@ -105,18 +105,18 @@ export async function apiCall<T>(
 
 // Auth
 export async function register(email: string, password: string, firstName: string, lastName: string): Promise<ApiResponse> {
-  return apiCall('/api/v1/auth/register', {
+  return apiCall<ApiResponse>('/api/v1/auth/register', {
     method: 'POST',
     body: JSON.stringify({ email, password, firstName, lastName }),
   });
 }
 
-export async function login(email: string, password: string): Promise<unknown> {
+export async function login(email: string, password: string): Promise<ApiResponse> {
   console.log(`[API-Login] 🔄 Tentative de connexion: ${email}`);
   console.log(`[API-Login] 🌐 URL: ${API_URL}/api/v1/auth/login`);
 
   try {
-    const result = await apiCall('/api/v1/auth/login', {
+    const result = await apiCall<ApiResponse>('/api/v1/auth/login', {
       method: 'POST',
       body: JSON.stringify({ email, password }),
     });
@@ -131,104 +131,104 @@ export async function login(email: string, password: string): Promise<unknown> {
 
 // Shared Accounts
 export async function getSharedAccounts(): Promise<ApiResponse> {
-  return apiCall('/api/v1/shared-accounts');
+  return apiCall<ApiResponse>('/api/v1/shared-accounts');
 }
 
 export async function createSharedAccount(name: string, description: string, targetAmount: number, currency: string): Promise<ApiResponse> {
-  return apiCall('/api/v1/shared-accounts', {
+  return apiCall<ApiResponse>('/api/v1/shared-accounts', {
     method: 'POST',
     body: JSON.stringify({ name, description, targetAmount, currency }),
   });
 }
 
 export async function getSharedAccount(id: string): Promise<ApiResponse> {
-  return apiCall(`/api/v1/shared-accounts/${id}`);
+  return apiCall<ApiResponse>(`/api/v1/shared-accounts/${id}`);
 }
 
 export async function updateSharedAccount(id: string, data: Record<string, unknown>): Promise<ApiResponse> {
-  return apiCall(`/api/v1/shared-accounts/${id}`, {
+  return apiCall<ApiResponse>(`/api/v1/shared-accounts/${id}`, {
     method: 'PATCH',
     body: JSON.stringify(data),
   });
 }
 
 export async function deleteSharedAccount(id: string): Promise<ApiResponse> {
-  return apiCall(`/api/v1/shared-accounts/${id}`, {
+  return apiCall<ApiResponse>(`/api/v1/shared-accounts/${id}`, {
     method: 'DELETE',
   });
 }
 
 // Goals
 export async function createGoal(accountId: string, name: string, targetAmount: number, deadline: string, description?: string): Promise<ApiResponse> {
-  return apiCall(`/api/v1/shared-accounts/${accountId}/goals`, {
+  return apiCall<ApiResponse>(`/api/v1/shared-accounts/${accountId}/goals`, {
     method: 'POST',
     body: JSON.stringify({ name, description, targetAmount, deadline }),
   });
 }
 
 export async function getGoals(accountId: string): Promise<ApiResponse> {
-  return apiCall(`/api/v1/shared-accounts/${accountId}/goals`);
+  return apiCall<ApiResponse>(`/api/v1/shared-accounts/${accountId}/goals`);
 }
 
 export async function deleteGoal(accountId: string, goalId: string): Promise<ApiResponse> {
-  return apiCall(`/api/v1/shared-accounts/${accountId}/goals/${goalId}`, {
+  return apiCall<ApiResponse>(`/api/v1/shared-accounts/${accountId}/goals/${goalId}`, {
     method: 'DELETE',
   });
 }
 
 // Contributions
 export async function createContribution(accountId: string, amount: number, description?: string): Promise<ApiResponse> {
-  return apiCall(`/api/v1/shared-accounts/${accountId}/contributions`, {
+  return apiCall<ApiResponse>(`/api/v1/shared-accounts/${accountId}/contributions`, {
     method: 'POST',
     body: JSON.stringify({ amount, description }),
   });
 }
 
 export async function getContributions(accountId: string): Promise<ApiResponse> {
-  return apiCall(`/api/v1/shared-accounts/${accountId}/contributions`);
+  return apiCall<ApiResponse>(`/api/v1/shared-accounts/${accountId}/contributions`);
 }
 
 // Notifications
 export async function getNotifications(): Promise<ApiResponse> {
-  return apiCall('/api/v1/notifications');
+  return apiCall<ApiResponse>('/api/v1/notifications');
 }
 
 export async function getUnreadNotifications(): Promise<ApiResponse> {
-  return apiCall('/api/v1/notifications/unread');
+  return apiCall<ApiResponse>('/api/v1/notifications/unread');
 }
 
 export async function markNotificationAsRead(id: string): Promise<ApiResponse> {
-  return apiCall(`/api/v1/notifications/${id}/read`, {
+  return apiCall<ApiResponse>(`/api/v1/notifications/${id}/read`, {
     method: 'PATCH',
   });
 }
 
 export async function markAllNotificationsAsRead(): Promise<ApiResponse> {
-  return apiCall('/api/v1/notifications/mark-all-as-read', {
+  return apiCall<ApiResponse>('/api/v1/notifications/mark-all-as-read', {
     method: 'PATCH',
   });
 }
 
 export async function deleteNotification(id: string): Promise<ApiResponse> {
-  return apiCall(`/api/v1/notifications/${id}`, {
+  return apiCall<ApiResponse>(`/api/v1/notifications/${id}`, {
     method: 'DELETE',
   });
 }
 
 // Members
 export async function getAccountMembers(accountId: string): Promise<ApiResponse> {
-  return apiCall(`/api/v1/shared-accounts/${accountId}/members`);
+  return apiCall<ApiResponse>(`/api/v1/shared-accounts/${accountId}/members`);
 }
 
 export async function inviteMember(accountId: string, email: string, role?: string): Promise<ApiResponse> {
-  return apiCall(`/api/v1/shared-accounts/${accountId}/members/invite`, {
+  return apiCall<ApiResponse>(`/api/v1/shared-accounts/${accountId}/members/invite`, {
     method: 'POST',
     body: JSON.stringify({ email, role }),
   });
 }
 
 export async function removeMember(accountId: string, memberId: string): Promise<ApiResponse> {
-  return apiCall(`/api/v1/shared-accounts/${accountId}/members/${memberId}`, {
+  return apiCall<ApiResponse>(`/api/v1/shared-accounts/${accountId}/members/${memberId}`, {
     method: 'DELETE',
   });
 }
