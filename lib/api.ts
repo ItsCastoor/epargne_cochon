@@ -203,8 +203,33 @@ export async function markNotificationAsRead(id: string): Promise<ApiResponse> {
   });
 }
 
+export async function markAllNotificationsAsRead(): Promise<ApiResponse> {
+  return apiCall('/api/v1/notifications/mark-all-as-read', {
+    method: 'PATCH',
+  });
+}
+
 export async function deleteNotification(id: string): Promise<ApiResponse> {
   return apiCall(`/api/v1/notifications/${id}`, {
     method: 'DELETE',
   });
 }
+
+// Members
+export async function getAccountMembers(accountId: string): Promise<ApiResponse> {
+  return apiCall(`/api/v1/shared-accounts/${accountId}/members`);
+}
+
+export async function inviteMember(accountId: string, email: string, role?: string): Promise<ApiResponse> {
+  return apiCall(`/api/v1/shared-accounts/${accountId}/members/invite`, {
+    method: 'POST',
+    body: JSON.stringify({ email, role }),
+  });
+}
+
+export async function removeMember(accountId: string, memberId: string): Promise<ApiResponse> {
+  return apiCall(`/api/v1/shared-accounts/${accountId}/members/${memberId}`, {
+    method: 'DELETE',
+  });
+}
+

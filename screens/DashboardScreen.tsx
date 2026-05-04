@@ -1,12 +1,14 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, TouchableOpacity, FlatList, ActivityIndicator, Alert, useWindowDimensions, ScrollView } from 'react-native';
+import { View, ScrollView, ActivityIndicator, Alert, useWindowDimensions } from 'react-native';
+import { Text, useTheme, Button, Chip } from 'react-native-paper';
 import { BottomTabScreenProps } from '@react-navigation/bottom-tabs';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
+import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { useAuth } from '@/lib/AuthContext';
 import { getSharedAccounts } from '@/lib/api';
 import { logger } from '@/lib/logger';
 import { TabParamList } from '@/lib/navigation';
-import AsyncStorage from "@react-native-async-storage/async-storage";
+import { CustomCard, ScreenHeader, CustomButton } from '@/components';
 
 interface Account {
   id: string;
@@ -24,19 +26,18 @@ type Props = BottomTabScreenProps<TabParamList, 'DashboardTab'>;
 const DashboardScreen: React.FC<Props> = () => {
   const { logout, user } = useAuth();
   const navigation = useNavigation<BottomTabScreenProps<TabParamList, 'DashboardTab'>['navigation']>();
+  const theme = useTheme();
   const { width } = useWindowDimensions();
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Déterminer si c'est web (large) ou mobile
   const isWebLayout = width > 768;
-  const cardWidth = isWebLayout ? width * 0.4 : '100%';
+  const cardWidth = isWebLayout ? '48%' : '100%';
 
   useEffect(() => {
     loadAccounts();
   }, []);
 
-  // Recharger les comptes quand l'écran regagne le focus (après création/suppression d'un compte)
   useFocusEffect(
     React.useCallback(() => {
       loadAccounts();
@@ -48,22 +49,19 @@ const DashboardScreen: React.FC<Props> = () => {
       setIsLoading(true);
       const data = await getSharedAccounts();
 
-      // Parser selon le format réel de l'API
       let accountList: Account[] = [];
       if (Array.isArray(data)) {
         accountList = data;
       } else if ((data as Record<string, unknown>).accounts && Array.isArray((data as Record<string, unknown>).accounts)) {
-        // Format: { accounts: [...] }
         accountList = (data as Record<string, unknown>).accounts as Account[];
       } else if ((data as Record<string, unknown>).data && Array.isArray((data as Record<string, unknown>).data)) {
-        // Format: { data: [...] }
         accountList = (data as Record<string, unknown>).data as Account[];
+      } else if ((data as Record<string, unknown>).shared_accounts && Array.isArray((data as Record<string, unknown>).shared_accounts)) {
+        accountList = (data as Record<string, unknown>).shared_accounts as Account[];
       } else if ((data as Record<string, unknown>)[0]) {
-        // Si c'est un objet avec des clés numériques (format spécial)
         accountList = Object.values(data as Record<string, unknown>) as Account[];
       }
 
-      // await logger.info(MODULE, 'Comptes chargés avec succès', { count: accountList.length });
       setAccounts(accountList);
     } catch (error) {
       const err = error instanceof Error ? error : new Error(String(error));
@@ -91,113 +89,131 @@ const DashboardScreen: React.FC<Props> = () => {
   };
 
   const handleAccountDetail = (id: string): void => {
-    console.log('[DashboardScreen] Navigating to AccountDetail with id:', id);
-    const token = AsyncStorage.getItem('token');
-    console.log('[DashboardScreen] Token from AsyncStorage:', token);
     const parent = (navigation as any).getParent?.();
-    console.log('[DashboardScreen] Parent navigator:', parent);
     parent?.navigate('AccountDetail', { id });
   };
 
   return (
-    <View style={{ flex: 1, backgroundColor: '#f5f5f5' }}>
-      {/* Header coloré */}
-      <View style={{
-        backgroundColor: '#1e40af',
-        paddingHorizontal: 24,
-        paddingVertical: 32,
-        paddingTop: 48,
-        borderBottomLeftRadius: 20,
-        borderBottomRightRadius: 20,
-        shadowColor: '#000',
-        shadowOpacity: 0.1,
-        shadowRadius: 10,
-        elevation: 5,
-      }}>
-        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-          <View>
-            <Text style={{ color: '#e0e7ff', fontSize: 14 }}>Bienvenue 👋</Text>
-            <Text style={{ color: '#fff', fontSize: 20, fontWeight: 'bold', marginTop: 4 }}>
-              {user?.firstName} {user?.lastName}
-            </Text>
-          </View>
-          <TouchableOpacity onPress={handleLogout} style={{ backgroundColor: '#dc2626', paddingHorizontal: 12, paddingVertical: 8, borderRadius: 6 }}>
-            <Text style={{ color: '#fff', fontWeight: '600', fontSize: 12 }}>🚪 Déconnexion</Text>
-          </TouchableOpacity>
-        </View>
-      </View>
+    <View style={{ flex: 1, backgroundColor: theme.colors.background }}>
+      {/* Header */}
+      <ScreenHeader
+        gradient="dashboard"
+        title={`Tableau de bord${'\n'}${user?.firstName}`}
+        subtitle="Bienvenue 👋"
+        rightContent={
+          <CustomButton
+            label="Déconnexion"
+            onPress={handleLogout}
+            variant="danger"
+            fullWidth={false}
+            icon={<MaterialCommunityIcons name="logout" size={16} color="#fff" />}
+          />
+        }
+      />
 
       {/* Content */}
-      <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingHorizontal: isWebLayout ? 32 : 16, paddingVertical: 24 }}>
-        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
-          <Text style={{ fontSize: isWebLayout ? 24 : 20, fontWeight: 'bold', color: '#000' }}>💰 Vos comptes</Text>
-          <TouchableOpacity onPress={handleCreateAccount} style={{ backgroundColor: '#059669', paddingHorizontal: 12, paddingVertical: 8, borderRadius: 6 }}>
-            <Text style={{ color: '#fff', fontWeight: '600', fontSize: 14 }}>➕ Créer</Text>
-          </TouchableOpacity>
+      <ScrollView
+        style={{ flex: 1 }}
+        contentContainerStyle={{ paddingHorizontal: isWebLayout ? 32 : 16, paddingVertical: 24 }}
+      >
+          <Chip
+            icon="piggy-bank"
+            style={{ backgroundColor: theme.colors.primaryContainer }}
+          >
+            {accounts.length} comptes actifs
+          </Chip>
+          <Chip
+            icon="currency-usd"
+            style={{ backgroundColor: theme.colors.secondaryContainer }}
+          >
+            {accounts.reduce((sum, acc) => sum + acc.currentAmount, 0).toFixed(0)} €
+          </Chip>
+
+        {/* Header Actions */}
+        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+          <Text variant="headlineSmall" style={{ fontWeight: '700', color: theme.colors.onBackground }}>
+            💰 Vos comptes
+          </Text>
+          <CustomButton
+            label="Créer"
+            onPress={handleCreateAccount}
+            variant="secondary"
+            fullWidth={false}
+            icon={<MaterialCommunityIcons name="plus" size={16} color="#fff" />}
+          />
         </View>
 
+        {/* Accounts List */}
         {isLoading ? (
           <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', minHeight: 200 }}>
-            <ActivityIndicator size="large" color="#2563eb" />
+            <ActivityIndicator size="large" color={theme.colors.primary} />
           </View>
         ) : accounts.length === 0 ? (
-          <View style={{
-            flex: 1,
-            justifyContent: 'center',
-            alignItems: 'center',
-            minHeight: 200,
-            backgroundColor: '#fef3c7',
-            borderRadius: 12,
-            paddingHorizontal: 24,
-          }}>
-            <Text style={{ color: '#92400e', fontSize: 16, textAlign: 'center' }}>
-              📭 Aucun compte pour le moment{'\n\n'}Commencez en créant votre premier compte !
-            </Text>
-          </View>
+          <CustomCard style={{ backgroundColor: theme.colors.tertiaryContainer, borderWidth: 0 }}>
+            <View style={{ justifyContent: 'center', alignItems: 'center', paddingVertical: 24 }}>
+              <Text variant="headlineSmall" style={{ color: theme.colors.tertiary, marginBottom: 8 }}>
+                📭 Aucun compte
+              </Text>
+              <Text style={{ color: theme.colors.onSurface, textAlign: 'center', marginBottom: 16 }}>
+                Commencez par créer votre premier compte d'épargne
+              </Text>
+              <CustomButton
+                label="Créer un compte"
+                onPress={handleCreateAccount}
+                variant="tertiary"
+              />
+            </View>
+          </CustomCard>
         ) : (
           <View style={{ flexDirection: isWebLayout ? 'row' : 'column', flexWrap: 'wrap', gap: 16 }}>
-            {accounts.map((item) => (
-              <TouchableOpacity
-                key={item.id}
-                onPress={() => handleAccountDetail(item.id)}
-                style={{
-                  width: isWebLayout ? '48%' : '100%',
-                  backgroundColor: '#fff',
-                  borderWidth: 1,
-                  borderColor: '#e5e7eb',
-                  borderRadius: 12,
-                  padding: 16,
-                  shadowColor: '#000',
-                  shadowOpacity: 0.05,
-                  shadowRadius: 8,
-                  elevation: 2,
-                }}
-              >
-                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                  <View style={{ flex: 1 }}>
-                    <Text style={{ fontSize: 18, fontWeight: '700', color: '#1e40af', marginBottom: 4 }}>
-                      {item.name}
-                    </Text>
-                    <Text style={{ fontSize: 13, color: '#666', marginTop: 2 }}>{item.description}</Text>
+            {accounts.map((account) => {
+              const progress = Math.min((account.currentAmount / account.targetAmount) * 100, 100);
+              return (
+                <CustomCard
+                  key={account.id}
+                  onPress={() => handleAccountDetail(account.id)}
+                  style={{ width: cardWidth }}
+                  elevated={true}
+                >
+                  <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12 }}>
+                    <View style={{ flex: 1 }}>
+                      <Text variant="titleLarge" style={{ fontWeight: '700', color: theme.colors.primary, marginBottom: 4 }}>
+                        {account.name}
+                      </Text>
+                      <Text variant="bodySmall" style={{ color: theme.colors.onSurfaceVariant }}>
+                        {account.description}
+                      </Text>
+                    </View>
+                    <MaterialCommunityIcons name="cash-multiple" size={28} color={theme.colors.tertiary} />
                   </View>
-                  <Text style={{ fontSize: 24 }}>💎</Text>
-                </View>
 
-                {/* Mini progress */}
-                <View style={{ marginTop: 12, backgroundColor: '#f3f4f6', height: 4, borderRadius: 2, overflow: 'hidden' }}>
-                  <View
-                    style={{
-                      backgroundColor: '#2563eb',
-                      height: '100%',
-                      width: `${Math.min((item.currentAmount / item.targetAmount) * 100, 100)}%`,
-                    }}
-                  />
-                </View>
-                <Text style={{ fontSize: 11, color: '#9ca3af', marginTop: 8 }}>
-                  {item.currentAmount.toFixed(0)} / {item.targetAmount.toFixed(0)} {item.currency}
-                </Text>
-              </TouchableOpacity>
-            ))}
+                  {/* Progress Bar */}
+                  <View style={{ marginVertical: 12 }}>
+                    <View style={{
+                      height: 6,
+                      backgroundColor: theme.colors.surfaceVariant,
+                      borderRadius: 3,
+                      overflow: 'hidden',
+                    }}>
+                      <View
+                        style={{
+                          height: '100%',
+                          backgroundColor: theme.colors.primary,
+                          width: `${progress}%`,
+                        }}
+                      />
+                    </View>
+                    <Text variant="labelSmall" style={{ marginTop: 8, color: theme.colors.onSurfaceVariant }}>
+                      {account.currentAmount.toFixed(0)} / {account.targetAmount.toFixed(0)} {account.currency}
+                    </Text>
+                  </View>
+
+                  <Text variant="bodySmall" style={{ color: theme.colors.secondary, fontWeight: '600' }}>
+                    Progression: {progress.toFixed(0)}%
+                  </Text>
+                </CustomCard>
+              );
+            })}
           </View>
         )}
       </ScrollView>

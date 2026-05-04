@@ -1,11 +1,14 @@
 import React, { useEffect, useState } from 'react';
-import { View, ActivityIndicator, Text } from 'react-native';
+import { View, ActivityIndicator } from 'react-native';
+import { PaperProvider, Text } from 'react-native-paper';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
+import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { AuthProvider, useAuth } from '@/lib/AuthContext';
 import { logger } from '@/lib/logger';
 import { AuthStackParamList, TabParamList, AppStackParamList } from '@/lib/navigation';
+import appTheme from '@/lib/theme';
 
 // Screens
 import RegisterScreen from '@/screens/auth/RegisterScreen';
@@ -58,7 +61,9 @@ function AppTabs() {
         options={{
           title: 'Tableau de bord',
           tabBarLabel: 'Accueil',
-          tabBarIcon: () => <Text style={{ fontSize: 20 }}>🏠</Text>,
+          tabBarIcon: ({ color, size }) => (
+            <MaterialCommunityIcons name="home" size={size} color={color} />
+          ),
           headerTitleStyle: { fontSize: 18, fontWeight: '600' },
         }}
       />
@@ -68,7 +73,9 @@ function AppTabs() {
         options={{
           title: 'Comptes',
           tabBarLabel: 'Comptes',
-          tabBarIcon: () => <Text style={{ fontSize: 20 }}>💼</Text>,
+          tabBarIcon: ({ color, size }) => (
+            <MaterialCommunityIcons name="briefcase" size={size} color={color} />
+          ),
           headerTitleStyle: { fontSize: 18, fontWeight: '600' },
         }}
       />
@@ -78,7 +85,9 @@ function AppTabs() {
         options={{
           title: 'Notifications',
           tabBarLabel: 'Notifications',
-          tabBarIcon: () => <Text style={{ fontSize: 20 }}>🔔</Text>,
+          tabBarIcon: ({ color, size }) => (
+            <MaterialCommunityIcons name="bell" size={size} color={color} />
+          ),
           headerTitleStyle: { fontSize: 18, fontWeight: '600' },
         }}
       />
@@ -162,8 +171,10 @@ export default function App() {
   }
 
   return (
-    <AuthProvider>
-      <RootNavigator />
-    </AuthProvider>
+    <PaperProvider theme={appTheme}>
+      <AuthProvider>
+        <RootNavigator />
+      </AuthProvider>
+    </PaperProvider>
   );
 }

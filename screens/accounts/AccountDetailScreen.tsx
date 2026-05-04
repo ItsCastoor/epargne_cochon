@@ -1,9 +1,12 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, TouchableOpacity, ScrollView, Alert, ActivityIndicator } from 'react-native';
+import { View, ScrollView, Alert, ActivityIndicator, Pressable, TextInput } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
+import { Text, useTheme, Chip } from 'react-native-paper';
+import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { AppStackParamList } from '@/lib/navigation';
-import { getSharedAccount, deleteSharedAccount } from '@/lib/api';
+import { getSharedAccount, deleteSharedAccount, getGoals, deleteGoal, getContributions, createContribution, inviteMember, getAccountMembers } from '@/lib/api';
 import { logger } from '@/lib/logger';
+import { ScreenHeader, CustomButton, CustomCard } from '@/components';
 
 type Props = NativeStackScreenProps<AppStackParamList, 'AccountDetail'>;
 
@@ -15,220 +18,324 @@ interface Account {
   currentAmount: number;
   currency: string;
   createdAt?: string;
-  updatedAt?: string;
+  members?: Array<{ id: string; email: string; role: string }>;
 }
+
+interface Goal {
+  id: string;
+  name: string;
+  targetAmount: number;
+  deadline: string;
+  currentAmount: number;
+}
+
+interface Contribution {
+  id: string;
+  amount: number;
+  description?: string;
+  createdAt: string;
+  memberEmail?: string;
+}
+
+type TabType = 'details' | 'members' | 'goals' | 'contributions';
 
 const MODULE = 'AccountDetailScreen';
 
 const AccountDetailScreen: React.FC<Props> = ({ route, navigation }) => {
   const { id } = route.params as { id: string };
+  const theme = useTheme();
   const [account, setAccount] = useState<Account | null>(null);
+  const [goals, setGoals] = useState<Goal[]>([]);
+  const [contributions, setContributions] = useState<Contribution[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [activeTab, setActiveTab] = useState<TabType>('details');
+
+  const [inviteEmail, setInviteEmail] = useState('');
+  const [contributionAmount, setContributionAmount] = useState('');
+  const [contributionDesc, setContributionDesc] = useState('');
 
   useEffect(() => {
-    loadAccount();
+    loadData();
   }, [id]);
 
-  const loadAccount = async (): Promise<void> => {
+  const loadData = async (): Promise<void> => {
     try {
       setIsLoading(true);
-      await logger.info(MODULE, 'Chargement du compte', { id });
-      const response = await getSharedAccount(id);
+      const [accountData, membersData, goalsData, contributionsData] = await Promise.all([
+        getSharedAccount(id),
+        getAccountMembers(id),
+        getGoals(id),
+        getContributions(id),
+      ]);
 
-      console.log('[AccountDetailScreen] 📦 API Response:', response);
-      console.log('[AccountDetailScreen] 📦 Response type:', typeof response);
-      console.log('[AccountDetailScreen] 📦 Response keys:', Object.keys(response as Record<string, unknown>));
-
-      // Gérer différents formats de réponse
-      let accountData: Account | undefined;
-      const data = response as unknown;
-
-      // Format 1: Objet direct avec .id
-      if (data && typeof data === 'object' && (data as Record<string, unknown>).id) {
-        accountData = data as Account;
-      }
-      // Format 2: { data: {...} }
-      else if ((response as Record<string, unknown>).data && ((response as Record<string, unknown>).data as Record<string, unknown>).id) {
-        accountData = ((response as Record<string, unknown>).data) as Account;
-      }
-      // Format 3: { account: {...} }
-      else if ((response as Record<string, unknown>).account && ((response as Record<string, unknown>).account as Record<string, unknown>).id) {
-        accountData = ((response as Record<string, unknown>).account) as Account;
+      let parsedAccount: Account | undefined;
+      const acctData = accountData as any;
+      if (acctData && typeof acctData === 'object' && acctData.id) {
+        parsedAccount = acctData as Account;
+      } else if (acctData?.data?.id) {
+        parsedAccount = acctData.data as Account;
+      } else if (acctData?.account?.id) {
+        parsedAccount = acctData.account as Account;
+      } else if (acctData?.shared_account?.id) {
+        parsedAccount = acctData.shared_account as Account;
       }
 
-      if (!accountData) {
-        console.error('[AccountDetailScreen] Format non reconnu - aucun compte trouvé:', response);
-        throw new Error('Format de réponse non reconnu');
+      if (!parsedAccount) throw new Error('Format non reconnu');
+
+      // Parse members from separate endpoint
+      let parsedMembers: Array<{ id: string; email: string; role: string }> = [];
+      if (Array.isArray(membersData)) {
+        parsedMembers = membersData;
+      } else if ((membersData as Record<string, unknown>).data && Array.isArray((membersData as Record<string, unknown>).data)) {
+        parsedMembers = (membersData as Record<string, unknown>).data as Array<{ id: string; email: string; role: string }>;
+      } else if ((membersData as Record<string, unknown>).members && Array.isArray((membersData as Record<string, unknown>).members)) {
+        parsedMembers = (membersData as Record<string, unknown>).members as Array<{ id: string; email: string; role: string }>;
+      } else if ((membersData as Record<string, unknown>)[0]) {
+        parsedMembers = Object.values(membersData as Record<string, unknown>) as Array<{ id: string; email: string; role: string }>;
+      }
+      parsedAccount.members = parsedMembers;
+
+      let parsedGoals: Goal[] = [];
+      if (Array.isArray(goalsData)) {
+        parsedGoals = goalsData;
+      } else if ((goalsData as Record<string, unknown>).data && Array.isArray((goalsData as Record<string, unknown>).data)) {
+        parsedGoals = (goalsData as Record<string, unknown>).data as Goal[];
+      } else if ((goalsData as Record<string, unknown>).goals && Array.isArray((goalsData as Record<string, unknown>).goals)) {
+        parsedGoals = (goalsData as Record<string, unknown>).goals as Goal[];
+      } else if ((goalsData as Record<string, unknown>)[0]) {
+        parsedGoals = Object.values(goalsData as Record<string, unknown>) as Goal[];
       }
 
-      setAccount(accountData);
-      await logger.info(MODULE, 'Compte chargé', { name: accountData.name });
+      let parsedContributions: Contribution[] = [];
+      if (Array.isArray(contributionsData)) {
+        parsedContributions = contributionsData;
+      } else if ((contributionsData as Record<string, unknown>).data && Array.isArray((contributionsData as Record<string, unknown>).data)) {
+        parsedContributions = (contributionsData as Record<string, unknown>).data as Contribution[];
+      } else if ((contributionsData as Record<string, unknown>).contributions && Array.isArray((contributionsData as Record<string, unknown>).contributions)) {
+        parsedContributions = (contributionsData as Record<string, unknown>).contributions as Contribution[];
+      } else if ((contributionsData as Record<string, unknown>)[0]) {
+        parsedContributions = Object.values(contributionsData as Record<string, unknown>) as Contribution[];
+      }
+
+      setAccount(parsedAccount);
+      setGoals(parsedGoals);
+      setContributions(parsedContributions);
     } catch (error) {
       const err = error instanceof Error ? error : new Error(String(error));
-      console.error('[AccountDetailScreen] Error loading account:', err.message);
-      await logger.error(MODULE, 'Erreur au chargement du compte', err, { id });
+      await logger.error(MODULE, 'Erreur chargement', err);
       Alert.alert('Erreur', 'Impossible de charger le compte');
     } finally {
       setIsLoading(false);
     }
   };
 
-  const handleDelete = (): void => {
-    Alert.alert('Confirmation', 'Êtes-vous sûr de vouloir supprimer ce compte?', [
+  const handleDeleteAccount = (): void => {
+    Alert.alert('Confirmation', 'Êtes-vous sûr?', [
       { text: 'Annuler', style: 'cancel' },
-      {
-        text: 'Supprimer',
-        style: 'destructive',
-        onPress: () => deleteAccount(),
-      },
+      { text: 'Supprimer', style: 'destructive', onPress: deleteAccount },
     ]);
   };
 
   const deleteAccount = async (): Promise<void> => {
     if (!account) return;
-
     try {
       setIsDeleting(true);
-      await logger.info(MODULE, 'Suppression du compte', { id: account.id });
       await deleteSharedAccount(account.id);
-
-      await logger.info(MODULE, 'Compte supprimé');
-      Alert.alert('Succès', 'Compte supprimé', [
-        {
-          text: 'OK',
-          onPress: () => navigation.goBack(),
-        },
-      ]);
+      Alert.alert('Succès', 'Compte supprimé', [{ text: 'OK', onPress: () => navigation.goBack() }]);
     } catch (error) {
-      const err = error instanceof Error ? error : new Error(String(error));
-      console.error('[AccountDetailScreen] Error deleting account:', err.message);
-      await logger.error(MODULE, 'Erreur lors de la suppression', err, { id: account.id });
-      Alert.alert('Erreur', 'Impossible de supprimer le compte');
+      Alert.alert('Erreur', 'Impossible de supprimer');
     } finally {
       setIsDeleting(false);
     }
   };
 
+  const handleInviteMember = async (): Promise<void> => {
+    if (!account || !inviteEmail.trim()) {
+      Alert.alert('Erreur', 'Veuillez entrer un email');
+      return;
+    }
+    try {
+      await inviteMember(account.id, inviteEmail);
+      Alert.alert('Succès', 'Invitation envoyée!');
+      setInviteEmail('');
+      await loadData();
+    } catch (error) {
+      Alert.alert('Erreur', String(error));
+    }
+  };
+
+  const handleAddContribution = async (): Promise<void> => {
+    if (!account || !contributionAmount.trim()) {
+      Alert.alert('Erreur', 'Veuillez entrer un montant');
+      return;
+    }
+    const amount = parseFloat(contributionAmount);
+    if (isNaN(amount) || amount <= 0) {
+      Alert.alert('Erreur', 'Montant invalide');
+      return;
+    }
+    try {
+      await createContribution(account.id, amount, contributionDesc);
+      Alert.alert('Succès', 'Contribution ajoutée!');
+      setContributionAmount('');
+      setContributionDesc('');
+      await loadData();
+    } catch (error) {
+      Alert.alert('Erreur', String(error));
+    }
+  };
+
   if (isLoading) {
-    return (
-      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#fff' }}>
-        <ActivityIndicator size="large" color="#2563eb" />
-      </View>
-    );
+    return <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: theme.colors.background }}><ActivityIndicator size="large" color={theme.colors.primary} /></View>;
   }
 
   if (!account) {
-    return (
-      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#fff' }}>
-        <Text style={{ fontSize: 16, color: '#666' }}>Compte non trouvé</Text>
-      </View>
-    );
+    return <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: theme.colors.background }}><Text>Compte non trouvé</Text></View>;
   }
 
   const progress = (account.currentAmount / account.targetAmount) * 100;
   const remaining = account.targetAmount - account.currentAmount;
+  const tabs: { id: TabType; label: string; icon: any }[] = [
+    { id: 'details', label: 'Détails', icon: 'information-outline' },
+    { id: 'members', label: 'Membres', icon: 'account-multiple' },
+    { id: 'goals', label: 'Objectifs', icon: 'bullseye' },
+    { id: 'contributions', label: 'Contributions', icon: 'cash-plus' },
+  ];
 
   return (
-    <ScrollView style={{ flex: 1, backgroundColor: '#fff' }}>
-      {/* Header */}
-      <View style={{ backgroundColor: '#2563eb', paddingHorizontal: 24, paddingVertical: 24, paddingTop: 48 }}>
-        <Text style={{ color: '#fff', fontSize: 14 }}>Compte d'épargne</Text>
-        <Text style={{ color: '#fff', fontSize: 28, fontWeight: 'bold', marginTop: 8 }}>{account.name}</Text>
-        {account.description && (
-          <Text style={{ color: '#cffafe', fontSize: 14, marginTop: 8 }}>{account.description}</Text>
-        )}
-      </View>
+    <View style={{ backgroundColor: theme.colors.background }}>
+      <ScreenHeader gradient="dashboard" title={account.name} subtitle={account.description} />
 
-      {/* Content */}
-      <View style={{ paddingHorizontal: 24, paddingVertical: 24, gap: 24 }}>
-        {/* Progress Card */}
-        <View style={{ backgroundColor: '#f3f4f6', borderRadius: 12, padding: 16, gap: 12 }}>
-          <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
-            <View>
-              <Text style={{ color: '#666', fontSize: 12, fontWeight: '500', marginBottom: 4 }}>Épargné</Text>
-              <Text style={{ fontSize: 24, fontWeight: 'bold', color: '#000' }}>
-                {account.currentAmount.toFixed(2)} {account.currency}
-              </Text>
-            </View>
-            <View style={{ justifyContent: 'center' }}>
-              <Text style={{ color: '#666', fontSize: 14, fontWeight: '500', textAlign: 'right' }}>
-                {progress.toFixed(0)}%
-              </Text>
-            </View>
-          </View>
-
-          {/* Progress Bar */}
-          <View style={{ backgroundColor: '#e5e7eb', height: 8, borderRadius: 4, overflow: 'hidden' }}>
-            <View
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ backgroundColor: theme.colors.surface, borderBottomWidth: 1, borderBottomColor: theme.colors.outline }}>
+        <View style={{ flexDirection: 'row', gap: 0}}>
+          {tabs.map((tab) => (
+            <Pressable
+              key={tab.id}
+              onPress={() => setActiveTab(tab.id)}
               style={{
-                backgroundColor: '#2563eb',
-                height: '100%',
-                width: `${Math.min(progress, 100)}%`,
+                flexDirection: 'column',
+                alignItems: 'center',
+                justifyContent: 'center',
+                paddingVertical: 8,
+                paddingHorizontal: 12,
+                borderBottomWidth: 3,
+                borderBottomColor: activeTab === tab.id ? theme.colors.primary : 'transparent',
               }}
-            />
-          </View>
-
-          <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
-            <Text style={{ color: '#666', fontSize: 12 }}>Objectif: {account.targetAmount.toFixed(2)} {account.currency}</Text>
-            <Text style={{ color: '#666', fontSize: 12 }}>À épargner: {remaining.toFixed(2)} {account.currency}</Text>
-          </View>
+            >
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 2 }}>
+                <MaterialCommunityIcons
+                  name={tab.icon}
+                  size={18}
+                  color={activeTab === tab.id ? theme.colors.primary : theme.colors.onSurfaceVariant}
+                />
+                <Text style={{ fontWeight: activeTab === tab.id ? '700' : '600', fontSize: 12, color: activeTab === tab.id ? theme.colors.primary : theme.colors.onSurfaceVariant }}>
+                  {tab.label}
+                </Text>
+              </View>
+            </Pressable>
+          ))}
         </View>
+      </ScrollView>
 
-        {/* Info Card */}
-        <View style={{ gap: 12 }}>
-          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-            <Text style={{ color: '#666', fontSize: 14 }}>Devise</Text>
-            <Text style={{ color: '#000', fontSize: 14, fontWeight: '600' }}>{account.currency}</Text>
-          </View>
-          {account.createdAt && (
-            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-              <Text style={{ color: '#666', fontSize: 14 }}>Créé le</Text>
-              <Text style={{ color: '#000', fontSize: 14, fontWeight: '600' }}>
-                {new Date(account.createdAt).toLocaleDateString('fr-FR')}
-              </Text>
+      <ScrollView contentContainerStyle={{ flex:1, paddingHorizontal: 16, paddingVertical: 20, gap: 16 }}>
+        {activeTab === 'details' && (
+          <>
+            <CustomCard>
+              <View style={{ gap: 12 }}>
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+                  <View><Text variant="labelSmall" style={{ color: theme.colors.onSurfaceVariant }}>Épargné</Text><Text variant="headlineSmall" style={{ fontWeight: '700', color: theme.colors.primary }}>{account.currentAmount.toFixed(2)} {account.currency}</Text></View>
+                  <Text variant="headlineLarge" style={{ color: theme.colors.tertiary }}>{progress.toFixed(0)}%</Text>
+                </View>
+                <View style={{ height: 8, backgroundColor: theme.colors.surfaceVariant, borderRadius: 4, overflow: 'hidden' }}><View style={{ height: '100%', backgroundColor: theme.colors.tertiary, width: `${Math.min(progress, 100)}%` }} /></View>
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}><Text variant="labelSmall">Objectif: {account.targetAmount.toFixed(2)} {account.currency}</Text><Text variant="labelSmall">À épargner: {remaining.toFixed(2)} {account.currency}</Text></View>
+              </View>
+            </CustomCard>
+            <CustomCard>
+              <View style={{ gap: 12 }}>
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}><Text variant="bodyMedium" style={{ color: theme.colors.onSurfaceVariant }}>Devise</Text><Text variant="bodyMedium" style={{ fontWeight: '600' }}>{account.currency}</Text></View>
+                {account.createdAt && <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}><Text variant="bodyMedium" style={{ color: theme.colors.onSurfaceVariant }}>Créé le</Text><Text variant="bodyMedium" style={{ fontWeight: '600' }}>{new Date(account.createdAt).toLocaleDateString('fr-FR')}</Text></View>}
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}><Text variant="bodyMedium" style={{ color: theme.colors.onSurfaceVariant }}>Membres</Text><Chip>{account.members?.length || 0}</Chip></View>
+              </View>
+            </CustomCard>
+            <CustomButton label={isDeleting ? 'Suppression...' : '🗑️ Supprimer'} onPress={handleDeleteAccount} variant="danger" loading={isDeleting} disabled={isDeleting} />
+          </>
+        )}
+
+        {activeTab === 'members' && (
+          <>
+            {account.members && account.members.length > 0 && (
+              <CustomCard>
+                <View style={{ gap: 12 }}>
+                  <Text variant="titleMedium" style={{ fontWeight: '700' }}>Membres</Text>
+                  <View style={{ gap: 8 }}>
+                    {account.members.map((member) => (
+                      <View key={member.id} style={{ flexDirection: 'row', justifyContent: 'space-between', paddingBottom: 8, borderBottomWidth: 1, borderBottomColor: theme.colors.outline }}>
+                        <View style={{ flex: 1 }}><Text variant="bodyMedium" style={{ fontWeight: '600' }}>{member.email}</Text><Text variant="labelMedium" style={{ color: theme.colors.onSurfaceVariant }}>Rôle: {member.role?.toLowerCase() === 'owner' ? 'propriétaire' : member.role}</Text></View>
+                        <Chip>{member.role}</Chip>
+                      </View>
+                    ))}
+                  </View>
+                </View>
+              </CustomCard>
+            )}
+            <CustomCard>
+              <View style={{ gap: 12 }}>
+                <Text variant="titleMedium" style={{ fontWeight: '700' }}>Inviter</Text>
+                <TextInput placeholder="email@example.com" value={inviteEmail} onChangeText={setInviteEmail} keyboardType="email-address" autoCapitalize="none" style={{ borderWidth: 1, borderColor: theme.colors.outline, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 10, color: theme.colors.onBackground }} placeholderTextColor={theme.colors.onSurfaceVariant} />
+                <CustomButton label="📧 Envoyer" onPress={handleInviteMember} variant="secondary" />
+              </View>
+            </CustomCard>
+          </>
+        )}
+
+        {activeTab === 'goals' && (
+          goals.length === 0 ? (
+            <CustomCard style={{ backgroundColor: theme.colors.tertiaryContainer }}><Text variant="bodyMedium" style={{ color: theme.colors.tertiary, textAlign: 'center' }}>🎯 Aucun objectif</Text></CustomCard>
+          ) : (
+            <View style={{ gap: 12 }}>
+              {goals.map((goal) => (
+                <CustomCard key={goal.id}>
+                  <View style={{ gap: 8 }}>
+                    <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}><Text variant="titleMedium" style={{ fontWeight: '700', flex: 1 }}>{goal.name}</Text><Text variant="bodySmall" style={{ color: theme.colors.onSurfaceVariant }}>{new Date(goal.deadline).toLocaleDateString('fr-FR')}</Text></View>
+                    <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}><Text variant="bodySmall">{goal.currentAmount} € / {goal.targetAmount} €</Text><Text variant="labelSmall" style={{ color: theme.colors.secondary, fontWeight: '600' }}>{((goal.currentAmount / goal.targetAmount) * 100).toFixed(0)}%</Text></View>
+                    <Pressable onPress={() => deleteGoal(id, goal.id).then(() => loadData()).catch(e => Alert.alert('Erreur', String(e)))} style={{ paddingVertical: 8 }}><Text style={{ color: theme.colors.error, fontWeight: '600' }}>🗑️ Supprimer</Text></Pressable>
+                  </View>
+                </CustomCard>
+              ))}
             </View>
-          )}
-        </View>
+          )
+        )}
 
-        {/* Action Buttons */}
-        <View style={{ gap: 12, marginTop: 16 }}>
-          <TouchableOpacity
-            disabled={isDeleting}
-            onPress={handleDelete}
-            style={{
-              width: '100%',
-              paddingVertical: 12,
-              borderRadius: 8,
-              backgroundColor: '#fee2e2',
-              flexDirection: 'row',
-              justifyContent: 'center',
-              alignItems: 'center',
-              gap: 8,
-            }}
-          >
-            {isDeleting && <ActivityIndicator size="small" color="#dc2626" />}
-            <Text style={{ color: '#dc2626', textAlign: 'center', fontWeight: '600', fontSize: 16 }}>
-              {isDeleting ? 'Suppression...' : '🗑️ Supprimer ce compte'}
-            </Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            onPress={() => navigation.goBack()}
-            style={{
-              width: '100%',
-              paddingVertical: 12,
-              borderRadius: 8,
-              backgroundColor: '#f3f4f6',
-            }}
-          >
-            <Text style={{ color: '#666', textAlign: 'center', fontWeight: '600', fontSize: 16 }}>
-              Retour
-            </Text>
-          </TouchableOpacity>
-        </View>
-      </View>
-    </ScrollView>
+        {activeTab === 'contributions' && (
+          <>
+            <CustomCard>
+              <View style={{ gap: 12 }}>
+                <Text variant="titleMedium" style={{ fontWeight: '700' }}>Ajouter</Text>
+                <TextInput placeholder="Montant" value={contributionAmount} onChangeText={setContributionAmount} keyboardType="decimal-pad" style={{ borderWidth: 1, borderColor: theme.colors.outline, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 10, color: theme.colors.onBackground }} placeholderTextColor={theme.colors.onSurfaceVariant} />
+                <TextInput placeholder="Description" value={contributionDesc} onChangeText={setContributionDesc} multiline numberOfLines={2} style={{ borderWidth: 1, borderColor: theme.colors.outline, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 10, color: theme.colors.onBackground }} placeholderTextColor={theme.colors.onSurfaceVariant} />
+                <CustomButton label="➕ Ajouter" onPress={handleAddContribution} variant="secondary" />
+              </View>
+            </CustomCard>
+            {contributions.length === 0 ? (
+              <CustomCard style={{ backgroundColor: theme.colors.primaryContainer }}><Text variant="bodyMedium" style={{ color: theme.colors.primary, textAlign: 'center' }}>💰 Aucune contribution</Text></CustomCard>
+            ) : (
+              <View style={{ gap: 12 }}>
+                {contributions.map((contrib) => (
+                  <CustomCard key={contrib.id}>
+                    <View style={{ gap: 4 }}>
+                      <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}><Text variant="titleSmall" style={{ fontWeight: '700' }}>{contrib.amount.toFixed(2)} € {account.currency}</Text><Text variant="labelSmall" style={{ color: theme.colors.onSurfaceVariant }}>{new Date(contrib.createdAt).toLocaleDateString('fr-FR')}</Text></View>
+                      {contrib.memberEmail && <Text variant="bodySmall" style={{ color: theme.colors.onSurfaceVariant }}>Par: {contrib.memberEmail}</Text>}
+                      {contrib.description && <Text variant="bodySmall" style={{ marginTop: 6, fontStyle: 'italic' }}>{contrib.description}</Text>}
+                    </View>
+                  </CustomCard>
+                ))}
+              </View>
+            )}
+          </>
+        )}
+      </ScrollView>
+    </View>
   );
 };
 

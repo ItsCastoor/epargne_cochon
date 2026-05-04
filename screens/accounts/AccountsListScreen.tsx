@@ -1,10 +1,13 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, TouchableOpacity, FlatList, ActivityIndicator, Alert, useWindowDimensions, ScrollView } from 'react-native';
+import { View, ScrollView, ActivityIndicator, Alert, useWindowDimensions } from 'react-native';
+import { Text, useTheme, Chip, FAB } from 'react-native-paper';
 import { BottomTabScreenProps } from '@react-navigation/bottom-tabs';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
+import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { getSharedAccounts } from '@/lib/api';
 import { logger } from '@/lib/logger';
 import { TabParamList } from '@/lib/navigation';
+import { CustomCard, ScreenHeader, CustomButton } from '@/components';
 
 interface Account {
   id: string;
@@ -14,21 +17,22 @@ interface Account {
 }
 
 const MODULE = 'AccountsListScreen';
-
 type Props = BottomTabScreenProps<TabParamList, 'AccountsTab'>;
 
 const AccountsListScreen: React.FC<Props> = () => {
   const navigation = useNavigation<BottomTabScreenProps<TabParamList, 'AccountsTab'>['navigation']>();
+  const theme = useTheme();
   const { width } = useWindowDimensions();
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+
   const isWebLayout = width > 768;
+  const cardWidth = isWebLayout ? '48%' : '100%';
 
   useEffect(() => {
     loadAccounts();
   }, []);
 
-  // Recharger les comptes quand l'écran regagne le focus (après création d'un compte)
   useFocusEffect(
     React.useCallback(() => {
       loadAccounts();
@@ -40,24 +44,18 @@ const AccountsListScreen: React.FC<Props> = () => {
       setIsLoading(true);
       const data = await getSharedAccounts();
 
-      console.log('[AccountsListScreen] 📦 Data:', data.accounts);
-
-      // Parser selon le format réel de l'API
       let accountList: Account[] = [];
-
       if (Array.isArray(data)) {
         accountList = data;
       } else if ((data as Record<string, unknown>).accounts && Array.isArray((data as Record<string, unknown>).accounts)) {
-        // Format: { accounts: [...] }
         accountList = (data as Record<string, unknown>).accounts as Account[];
       } else if ((data as Record<string, unknown>).data && Array.isArray((data as Record<string, unknown>).data)) {
-        // Format: { data: [...] }
         accountList = (data as Record<string, unknown>).data as Account[];
+      } else if ((data as Record<string, unknown>).shared_accounts && Array.isArray((data as Record<string, unknown>).shared_accounts)) {
+        accountList = (data as Record<string, unknown>).shared_accounts as Account[];
       } else if ((data as Record<string, unknown>)[0]) {
-        // Si c'est un objet avec des clés numériques (format spécial)
         accountList = Object.values(data as Record<string, unknown>) as Account[];
       }
-      console.log('[AccountsListScreen] 🔍 Liste Account:', accountList);
 
       setAccounts(accountList);
     } catch (error) {
@@ -75,119 +73,140 @@ const AccountsListScreen: React.FC<Props> = () => {
   };
 
   const handleAccountDetail = (id: string): void => {
-    console.log('[AccountsListScreen] Navigating to AccountDetail with id:', id);
     const parent = (navigation as any).getParent?.();
-    console.log('[AccountsListScreen] Parent navigator:', parent);
     parent?.navigate('AccountDetail', { id });
   };
 
   return (
-    <View style={{ flex: 1, backgroundColor: '#f5f5f5' }}>
+    <View style={{ flex: 1, backgroundColor: theme.colors.background }}>
       {/* Header */}
-      <View style={{
-        backgroundColor: '#7c3aed',
-        paddingHorizontal: 24,
-        paddingVertical: 24,
-        paddingTop: 48,
-        borderBottomLeftRadius: 20,
-        borderBottomRightRadius: 20,
-        shadowColor: '#000',
-        shadowOpacity: 0.1,
-        shadowRadius: 10,
-        elevation: 5,
-      }}>
-        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-          <Text style={{ fontSize: 24, fontWeight: 'bold', color: '#fff' }}>💼 Mes comptes</Text>
-          <TouchableOpacity
-            onPress={handleCreateAccount}
-            style={{ backgroundColor: '#06b6d4', paddingHorizontal: 12, paddingVertical: 8, borderRadius: 6 }}
+      <ScreenHeader
+        gradient="accounts"
+        title="Mes comptes"
+        subtitle="Gestion des épargnes"
+        rightContent={
+          <Chip
+            icon="account-circle"
+            style={{ backgroundColor: 'rgba(255,255,255,0.2)' }}
           >
-            <Text style={{ color: '#fff', fontWeight: '600', fontSize: 14 }}>➕ Nouveau</Text>
-          </TouchableOpacity>
-        </View>
-      </View>
+            <Text style={{ color: '#fff', fontWeight: '600' }}>
+              {accounts.length}
+            </Text>
+          </Chip>
+        }
+      />
 
       {/* Content */}
-      <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingHorizontal: isWebLayout ? 32 : 16, paddingVertical: 24 }}>
+      <ScrollView
+        style={{ flex: 1 }}
+        contentContainerStyle={{ paddingHorizontal: isWebLayout ? 32 : 16, paddingVertical: 24 }}
+      >
         {isLoading ? (
           <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', minHeight: 300 }}>
-            <ActivityIndicator size="large" color="#7c3aed" />
+            <ActivityIndicator size="large" color={theme.colors.tertiary} />
           </View>
         ) : accounts.length === 0 ? (
-          <View style={{
-            flex: 1,
-            justifyContent: 'center',
-            alignItems: 'center',
-            minHeight: 300,
-            backgroundColor: '#ede9fe',
-            borderRadius: 12,
-            paddingHorizontal: 24,
-          }}>
-            <Text style={{ color: '#5b21b6', fontSize: 16, textAlign: 'center', fontWeight: '600' }}>
-              📊 Aucun compte encore{'\n\n'}Créez votre premiere épargne !
-            </Text>
-          </View>
+          <CustomCard style={{ backgroundColor: theme.colors.tertiaryContainer, borderWidth: 0 }}>
+            <View style={{ justifyContent: 'center', alignItems: 'center', paddingVertical: 40 }}>
+              <MaterialCommunityIcons name="folder-open" size={48} color={theme.colors.tertiary} />
+              <Text variant="headlineSmall" style={{ color: theme.colors.tertiary, marginTop: 16, marginBottom: 8, fontWeight: '700' }}>
+                Aucun compte encore
+              </Text>
+              <Text style={{ color: theme.colors.onSurface, textAlign: 'center', marginBottom: 20 }}>
+                Créez votre première épargne pour gérer vos finances en famille
+              </Text>
+              <CustomButton
+                label="Créer mon premier compte"
+                onPress={handleCreateAccount}
+                variant="tertiary"
+              />
+            </View>
+          </CustomCard>
         ) : (
-          <View style={{ flexDirection: isWebLayout ? 'row' : 'column', flexWrap: 'wrap', gap: 16 }}>
-            {accounts.map((item) => (
-              <TouchableOpacity
-                key={item.id}
-                onPress={() => handleAccountDetail(item.id)}
+          <View style={{ flexDirection: isWebLayout ? 'row' : 'column', flexWrap: 'wrap', gap: 16, marginBottom: 80 }}>
+            {accounts.map((account) => (
+              <CustomCard
+                key={account.id}
+                onPress={() => handleAccountDetail(account.id)}
                 style={{
-                  width: isWebLayout ? '48%' : '100%',
-                  backgroundColor: '#fff',
-                  borderWidth: 2,
-                  borderColor: '#7c3aed',
-                  borderRadius: 12,
-                  padding: 16,
-                  shadowColor: '#000',
-                  shadowOpacity: 0.08,
-                  shadowRadius: 8,
-                  elevation: 3,
+                  width: cardWidth,
+                  borderLeftColor: theme.colors.tertiary,
+                  borderLeftWidth: 4,
                 }}
+                elevated={true}
               >
                 <View style={{
                   flexDirection: 'row',
                   justifyContent: 'space-between',
                   alignItems: 'flex-start',
-                  marginBottom: 8,
+                  marginBottom: 12,
                 }}>
                   <View style={{ flex: 1 }}>
-                    <Text style={{ fontSize: 18, fontWeight: '700', color: '#7c3aed' }}>
-                      {item.name}
+                    <Text variant="titleLarge" style={{
+                      fontWeight: '700',
+                      color: theme.colors.tertiary,
+                      marginBottom: 4,
+                    }}>
+                      {account.name}
                     </Text>
-                    <Text style={{ fontSize: 12, color: '#999', marginTop: 4 }}>
-                      {item.description}
+                    <Text variant="bodySmall" style={{
+                      color: theme.colors.onSurfaceVariant,
+                      marginBottom: 8,
+                    }}>
+                      {account.description}
                     </Text>
                   </View>
-                  <Text style={{ fontSize: 24 }}>💰</Text>
+                  <MaterialCommunityIcons name="wallet" size={32} color={theme.colors.tertiary} />
                 </View>
 
-                {/* Badge devise */}
+                {/* Currency Badge */}
+                <Chip
+                  icon="currency-eur"
+                  style={{
+                    backgroundColor: theme.colors.primaryContainer,
+                    alignSelf: 'flex-start',
+                  }}
+                >
+                  <Text style={{ fontWeight: '600', color: theme.colors.primary }}>
+                    {account.currency}
+                  </Text>
+                </Chip>
+
+                {/* Footer */}
                 <View style={{
-                  display: 'flex',
-                  flexDirection: 'row',
-                  alignItems: 'center',
                   marginTop: 12,
-                  backgroundColor: '#f3e8ff',
-                  paddingHorizontal: 8,
-                  paddingVertical: 4,
-                  borderRadius: 6,
-                  alignSelf: 'flex-start',
+                  paddingTop: 12,
+                  borderTopColor: theme.colors.outline,
+                  borderTopWidth: 1,
+                  flexDirection: 'row',
+                  justifyContent: 'flex-end',
                 }}>
-                  <Text style={{
-                    fontSize: 12,
+                  <Text variant="labelSmall" style={{
+                    color: theme.colors.primary,
                     fontWeight: '600',
-                    color: '#7c3aed',
                   }}>
-                    💱 {item.currency}
+                    Cliquez pour plus →
                   </Text>
                 </View>
-              </TouchableOpacity>
+              </CustomCard>
             ))}
           </View>
         )}
       </ScrollView>
+
+      {/* FAB - Floating Action Button */}
+      {!isLoading && (
+        <FAB
+          icon="plus"
+          onPress={handleCreateAccount}
+          style={{
+            position: 'absolute',
+            bottom: 24,
+            right: 24,
+            backgroundColor: theme.colors.tertiary,
+          }}
+        />
+      )}
     </View>
   );
 };
