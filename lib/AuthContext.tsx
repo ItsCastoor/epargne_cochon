@@ -54,42 +54,31 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const initAuth = async () => {
       try {
         const savedToken = await authLib.getToken();
+        const savedUser = await authLib.getUser();
+        console.log('[AuthContext] Token récupéré au démarrage:', savedToken ? 'OUI' : 'NON');
+        console.log('[AuthContext] User récupéré au démarrage:', savedUser ? `${savedUser.firstName} ${savedUser.lastName}` : 'NON');
 
         if (!savedToken) {
           // Pas de token trouvé - c'est normal
           setTokenState(null);
+          setUser(null);
           logger.info(MODULE, 'Aucun token trouvé au chargement').catch(() => {});
         } else {
-          // Token trouvé, le valider en faisant une requête simple à l'API
-          try {
-            const response = await fetch(`${API_URL}/api/v1/auth/validate`, {
-              method: 'GET',
-              headers: {
-                'Authorization': `Bearer ${savedToken}`,
-                'Content-Type': 'application/json',
-              },
-            });
-
-            if (response.ok) {
-              // Token valide
-              setTokenState(savedToken);
-              logger.info(MODULE, 'Token valide trouvé au chargement').catch(() => {});
-            } else {
-              // Token invalide - le supprimer
-              await authLib.removeToken();
-              setTokenState(null);
-              logger.warn(MODULE, 'Token invalide trouvé, suppression').catch(() => {});
-            }
-          } catch (validationError) {
-            // Erreur de validation - garder le token mais logger l'erreur
-            setTokenState(savedToken);
-            logger.warn(MODULE, 'Impossible de valider le token au démarrage').catch(() => {});
+          // Token trouvé - on le garde et on restaure aussi le user
+          console.log('[AuthContext] Token restauré de la session');
+          setTokenState(savedToken);
+          if (savedUser) {
+            setUser(savedUser);
+            console.log('[AuthContext] User restauré de la session');
           }
+          logger.info(MODULE, 'Session restaurée au chargement').catch(() => {});
         }
       } catch (error) {
         const err = error instanceof Error ? error : new Error(String(error));
-        logger.error(MODULE, 'Erreur lors du chargement du token', err).catch(() => {});
+        console.error('[AuthContext] Erreur lors du chargement de la session:', err.message);
+        logger.error(MODULE, 'Erreur lors du chargement de la session', err).catch(() => {});
         setTokenState(null);
+        setUser(null);
       } finally {
         setIsLoading(false);
       }
@@ -108,6 +97,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const { user, token } = extractAuthData(response);
 
       await authLib.setToken(token);
+      await authLib.setUser(user || { id: '', email, firstName: '', lastName: '' });
       setTokenState(token);
       setUser(user);
       logger.info(MODULE, 'Connexion réussie').catch(() => {});
@@ -130,6 +120,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const { user, token } = extractAuthData(response);
 
       await authLib.setToken(token);
+      await authLib.setUser(user || { id: '', email, firstName, lastName });
       setTokenState(token);
       setUser(user);
       logger.info(MODULE, 'Inscription réussie').catch(() => {});
@@ -145,6 +136,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const logout = async (): Promise<void> => {
     try {
       await authLib.removeToken();
+      await authLib.removeUser();
       setTokenState(null);
       setUser(null);
       logger.info(MODULE, 'Déconnexion réussie').catch(() => {});

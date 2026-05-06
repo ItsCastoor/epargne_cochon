@@ -42,3 +42,28 @@ export async function isAuthenticated(): Promise<boolean> {
   return !!token;
 }
 
+export async function setUser(user: User) {
+  try {
+    await AsyncStorage.setItem('user', JSON.stringify(user));
+  } catch (error) {
+    console.error('[Auth] Erreur lors de la sauvegarde du user:', error);
+  }
+}
+
+export async function getUser(): Promise<User | null> {
+  try {
+    const userJson = await AsyncStorage.getItem('user');
+    return userJson ? JSON.parse(userJson) : null;
+  } catch (error) {
+    console.error('[Auth] Erreur lors de la récupération du user:', error);
+    return null;
+  }
+}
+
+export async function removeUser() {
+  try {
+    await AsyncStorage.removeItem('user');
+  } catch (error) {
+    console.error('[Auth] Erreur lors de la suppression du user:', error);
+  }
+}
