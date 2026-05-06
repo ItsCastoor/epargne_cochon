@@ -1,6 +1,19 @@
 import { getToken } from './auth';
 import { logger } from './logger';
 
+// Class personnalisée pour les erreurs API
+export class ApiError extends Error {
+  constructor(
+    public status: number,
+    public statusText: string,
+    message: string
+  ) {
+    super(message);
+    this.name = 'ApiError';
+    Object.setPrototypeOf(this, ApiError.prototype);
+  }
+}
+
 // lib/api.ts - Client API pour communiquer avec l'API Express
 // Sur Expo, les variables d'env doivent commencer par EXPO_PUBLIC_
 const API_URL = process.env.EXPO_PUBLIC_API_URL || process.env.REACT_APP_API_URL || 'https://apiepargne.tpareschi.eu';
@@ -87,10 +100,10 @@ export async function apiCall<T>(
         error = { error: `Erreur HTTP ${response.status}` };
       }
 
-      const errorMessage = error.error || error.message || `HTTP ${response.status}`;
-      console.error(`[API] ❌ Erreur ${response.status}: ${errorMessage}`);
+       const errorMessage = error.error || error.message || `HTTP ${response.status}`;
+       console.error(`[API] ❌ Erreur ${response.status}: ${errorMessage}`);
 
-      throw new Error(String(errorMessage));
+       throw new ApiError(response.status, response.statusText, String(errorMessage));
     }
 
     return await response.json() as T;

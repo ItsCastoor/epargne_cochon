@@ -4,7 +4,7 @@ import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { Text, useTheme, Chip } from 'react-native-paper';
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { AppStackParamList } from '@/lib/navigation';
-import { getSharedAccount, deleteSharedAccount, getGoals, deleteGoal, getContributions, createContribution, inviteMember, getAccountMembers } from '@/lib/api';
+import { getSharedAccount, deleteSharedAccount, getGoals, deleteGoal, getContributions, createContribution, inviteMember, getAccountMembers, removeMember } from '@/lib/api';
 import { logger } from '@/lib/logger';
 import { ScreenHeader, CustomButton, CustomCard } from '@/components';
 import { generateColorFromId } from '@/lib/colors';
@@ -35,7 +35,13 @@ interface Contribution {
   amount: number;
   description?: string;
   createdAt: string;
-  memberEmail?: string;
+  userId: string;
+  User?: {
+    id: string;
+    email: string;
+    firstName: string;
+    lastName: string;
+  };
 }
 
 type TabType = 'details' | 'members' | 'goals' | 'contributions';
@@ -120,9 +126,12 @@ const AccountDetailScreen: React.FC<Props> = ({ route, navigation }) => {
       }
 
       setAccount(parsedAccount);
-
       setGoals(parsedGoals);
       setContributions(parsedContributions);
+
+      // Log pour diagnostiquer
+      console.log('[AccountDetailScreen] Contributions reçues:', parsedContributions);
+      console.log('[AccountDetailScreen] Members reçus:', parsedMembers);
     } catch (error) {
       const err = error instanceof Error ? error : new Error(String(error));
       await logger.error(MODULE, 'Erreur chargement', err);
@@ -163,7 +172,24 @@ const AccountDetailScreen: React.FC<Props> = ({ route, navigation }) => {
       setInviteEmail('');
       await loadData();
     } catch (error) {
-      Alert.alert('Erreur', String(error));
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      const statusCode = (error as any)?.status;
+
+      // Vérifier le code d'erreur HTTP
+      switch (statusCode) {
+        case 403:
+          Alert.alert('Erreur', 'Seul le propriétaire peut inviter');
+          break;
+        case 404:
+          Alert.alert('Erreur', 'L\'adresse email est introuvable');
+          break;
+        case 409:
+          Alert.alert('Erreur', 'L\'utilisateur est déjà membre');
+          break;
+        default:
+          // Si pas de code HTTP, afficher le message
+          Alert.alert('Erreur', errorMessage);
+      }
     }
   };
 
@@ -182,6 +208,24 @@ const AccountDetailScreen: React.FC<Props> = ({ route, navigation }) => {
       Alert.alert('Succès', 'Contribution ajoutée!');
       setContributionAmount('');
       setContributionDesc('');
+      await loadData();
+    } catch (error) {
+      Alert.alert('Erreur', String(error));
+    }
+  };
+
+  const handleRemoveMember = (memberId: string, memberName: string): void => {
+    Alert.alert('Confirmation', `Êtes-vous sûr de vouloir retirer ${memberName} ?`, [
+      { text: 'Annuler', style: 'cancel' },
+      { text: 'Retirer', style: 'destructive', onPress: () => removeMemberConfirmed(memberId) },
+    ]);
+  };
+
+  const removeMemberConfirmed = async (memberId: string): Promise<void> => {
+    if (!account) return;
+    try {
+      await removeMember(account.id, memberId);
+      Alert.alert('Succès', 'Membre retiré du compte');
       await loadData();
     } catch (error) {
       Alert.alert('Erreur', String(error));
@@ -267,7 +311,42 @@ const AccountDetailScreen: React.FC<Props> = ({ route, navigation }) => {
                   <View><Text variant="labelSmall" style={{ color: theme.colors.onSurfaceVariant }}>Épargné</Text><Text variant="headlineSmall" style={{ fontWeight: '700', color: theme.colors.primary }}>{account.currentAmount.toFixed(2)} {account.currency}</Text></View>
                   <Text variant="headlineLarge" style={{ color: theme.colors.tertiary }}>{progress.toFixed(0)}%</Text>
                 </View>
-                <View style={{ height: 8, backgroundColor: theme.colors.surfaceVariant, borderRadius: 4, overflow: 'hidden' }}><View style={{ height: '100%', backgroundColor: theme.colors.tertiary, width: `${Math.min(progress, 100)}%` }} /></View>
+
+                {/* Barre de progression colorée par contributeur */}
+                <View style={{ height: 8, backgroundColor: theme.colors.surfaceVariant, borderRadius: 4, overflow: 'hidden', flexDirection: 'row' }}>
+                  {account.members && account.members.length > 0 && contributions.length > 0 && account.targetAmount > 0 ? (
+                    <>
+                      {account.members.map((member) => {
+                        const memberContributions = contributions.filter(c => c.userId === member.id);
+                        const memberTotal = memberContributions.reduce((sum, c) => sum + c.amount, 0);
+                        const memberWidthPercent = (memberTotal / account.targetAmount) * 100;
+
+                        console.log(`[ProgressBar] ${member.firstName}: $${memberTotal} / ${account.targetAmount} = ${memberWidthPercent}%`);
+
+                        return memberWidthPercent > 0 ? (
+                          <View
+                            key={member.id}
+                            style={{
+                              height: '100%',
+                              width: `${memberWidthPercent}%`,
+                              backgroundColor: generateColorFromId(member.id),
+                            }}
+                          />
+                        ) : null;
+                      })}
+                      <View
+                        style={{
+                          height: '100%',
+                          width: `${((account.targetAmount - account.currentAmount) / account.targetAmount) * 100}%`,
+                          backgroundColor: theme.colors.surfaceVariant,
+                        }}
+                      />
+                    </>
+                  ) : (
+                    <View style={{ height: '100%', backgroundColor: theme.colors.tertiary, width: '100%' }} />
+                  )}
+                </View>
+
                 <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}><Text variant="labelSmall">Objectif: {account.targetAmount.toFixed(2)} {account.currency}</Text><Text variant="labelSmall">À épargner: {remaining.toFixed(2)} {account.currency}</Text></View>
               </View>
             </CustomCard>
@@ -294,7 +373,7 @@ const AccountDetailScreen: React.FC<Props> = ({ route, navigation }) => {
                           backgroundColor: generateColorFromId(member.id),
                         }} />
                         <Text variant="bodySmall" style={{ flex: 1, fontWeight: '500' }}>{member.firstName} {member.lastName}</Text>
-                        <Text variant="labelSmall" style={{ color: theme.colors.onSurfaceVariant }}>{member.role?.toLowerCase() === 'owner' ? 'propriétaire' : member.role}</Text>
+                        <Text variant="labelSmall" style={{ color: theme.colors.onSurfaceVariant }}>{member.role?.toLowerCase() === 'owner' ? 'propriétaire' : 'contributeur'}</Text>
                       </View>
                     ))}
                   </View>
@@ -312,11 +391,17 @@ const AccountDetailScreen: React.FC<Props> = ({ route, navigation }) => {
               <CustomCard>
                 <View style={{ gap: 12 }}>
                   <Text variant="titleMedium" style={{ fontWeight: '700' }}>Membres</Text>
+                  <View style={{ borderTopWidth: 1, borderTopColor: theme.colors.outline }} />
                   <View style={{ gap: 8 }}>
                     {account.members.map((member) => (
-                      <View key={member.id} style={{ flexDirection: 'row', justifyContent: 'space-between', paddingBottom: 8, borderBottomWidth: 1, borderBottomColor: theme.colors.outline }}>
-                        <View style={{ flex: 1 }}><Text variant="bodyMedium" style={{ fontWeight: '600' }}>{member.email}</Text><Text variant="labelMedium" style={{ color: theme.colors.onSurfaceVariant }}>Rôle: {member.role?.toLowerCase() === 'owner' ? 'propriétaire' : member.role}</Text></View>
-                        <Chip style={{ backgroundColor: generateColorFromId(member.id) }}>{member.role}</Chip>
+                      <View key={member.id} style={{ flexDirection: 'row', alignItems: 'center', gap: 12, paddingBottom: 8, borderBottomWidth: 1, borderBottomColor: theme.colors.outline }}>
+                        <View style={{ flex: 1 }}><Text variant="bodyMedium" style={{ fontWeight: '600' }}>{member.firstName} {member.lastName}</Text><Text variant="labelSmall" style={{ color: theme.colors.onSurfaceVariant, marginTop: 4 }}>{member.email}</Text><Text variant="labelMedium" style={{ color: theme.colors.onSurfaceVariant, marginTop: 4 }}>Rôle: {member.role?.toLowerCase() === 'owner' ? 'propriétaire' : 'contributeur'}</Text></View>
+                        <View style={{ flexDirection: 'row', gap: 8 }}>
+                          <Chip style={{ backgroundColor: generateColorFromId(member.id) }}>{member.role?.toLowerCase() === 'owner' ? 'propriétaire' : 'contributeur'}</Chip>
+                          <Pressable onPress={() => handleRemoveMember(member.id, `${member.firstName} ${member.lastName}`)} style={{ padding: 8 }}>
+                            <MaterialCommunityIcons name="trash-can-outline" size={20} color={theme.colors.error} />
+                          </Pressable>
+                        </View>
                       </View>
                     ))}
                   </View>
@@ -370,16 +455,16 @@ const AccountDetailScreen: React.FC<Props> = ({ route, navigation }) => {
                   <CustomCard style={{ backgroundColor: theme.colors.surface }}>
                     <View style={{ gap: 8 }}>
                       <Text variant="labelSmall" style={{ fontWeight: '600', color: theme.colors.onSurfaceVariant }}>📍 Couleur par contributeur:</Text>
-                      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+                      <View style={{ flexDirection: 'column', gap: 8 }}>
                         {account.members.map((member) => (
-                          <View key={member.id} style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flex: 0.48 }}>
+                          <View key={member.id} style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
                             <View style={{
                               width: 16,
                               height: 16,
                               borderRadius: 8,
                               backgroundColor: generateColorFromId(member.id),
                             }} />
-                            <Text variant="labelSmall" style={{ fontSize: 11 }}>{member.email.split('@')[0]}</Text>
+                            <Text variant="labelSmall" style={{ fontSize: 11 }}>{member.firstName} {member.lastName}</Text>
                           </View>
                         ))}
                       </View>
@@ -389,15 +474,20 @@ const AccountDetailScreen: React.FC<Props> = ({ route, navigation }) => {
 
                 <View style={{ gap: 12 }}>
                   {contributions.map((contrib) => {
-                    // Trouver le membre qui a contribué
-                    const contributor = account.members?.find(m => m.email === contrib.memberEmail);
+                    // Trouver le membre qui a contribué en matchant par userId
+                    const contributor = account.members?.find(m => m.id === contrib.userId);
                     const memberColor = contributor ? generateColorFromId(contributor.id) : theme.colors.primary;
+                    const displayName = contrib.User
+                      ? `${contrib.User.firstName} ${contrib.User.lastName}`.trim()
+                      : contributor
+                      ? `${contributor.firstName} ${contributor.lastName}`
+                      : 'Anonyme';
 
                     return (
                       <CustomCard key={contrib.id} style={{ borderLeftColor: memberColor, borderLeftWidth: 4 }}>
                         <View style={{ gap: 8 }}>
                           <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-                            {contrib.memberEmail && <Text variant="titleSmall" style={{ color: memberColor, fontWeight: '700', flex: 1 }}>👤 {contrib.memberEmail}</Text>}
+                            <Text variant="titleSmall" style={{ color: memberColor, fontWeight: '700', flex: 1 }}>👤 {displayName}</Text>
                             <Text variant="titleSmall" style={{ fontWeight: '700', color: theme.colors.tertiary }}>{contrib.amount.toFixed(2)} {account.currency}</Text>
                           </View>
                           <Text variant="labelSmall" style={{ color: theme.colors.onSurfaceVariant }}>{new Date(contrib.createdAt).toLocaleDateString('fr-FR')}</Text>
