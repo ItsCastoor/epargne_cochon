@@ -3,7 +3,7 @@ import * as authLib from '@/lib/auth';
 import { login as apiLogin, register as apiRegister, ApiResponse } from '@/lib/api';
 import { logger } from '@/lib/logger';
 
-const API_URL = process.env.EXPO_PUBLIC_API_URL || process.env.REACT_APP_API_URL || 'https://apiepargne.tpareschi.eu';
+// const API_URL = process.env.EXPO_PUBLIC_API_URL || process.env.REACT_APP_API_URL || 'https://apiepargne.tpareschi.eu';
 
 /**
  * Extrait user et token d'une réponse API
