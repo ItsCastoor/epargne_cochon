@@ -3,8 +3,6 @@ import * as authLib from '@/lib/auth';
 import { login as apiLogin, register as apiRegister, ApiResponse } from '@/lib/api';
 import { logger } from '@/lib/logger';
 
-// const API_URL = process.env.EXPO_PUBLIC_API_URL || process.env.REACT_APP_API_URL || 'https://apiepargne.tpareschi.eu';
-
 /**
  * Extrait user et token d'une réponse API
  * Gère plusieurs formats de réponse
@@ -59,12 +57,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         console.log('[AuthContext] User récupéré au démarrage:', savedUser ? `${savedUser.firstName} ${savedUser.lastName}` : 'NON');
 
         if (!savedToken) {
-          // Pas de token trouvé - c'est normal
+          // Pas de token trouvé — c'est normal
           setTokenState(null);
           setUser(null);
           logger.info(MODULE, 'Aucun token trouvé au chargement').catch(() => {});
         } else {
-          // Token trouvé - on le garde et on restaure aussi le user
+          // Token trouvé — on le garde et on restaure aussi le user
           console.log('[AuthContext] Token restauré de la session');
           setTokenState(savedToken);
           if (savedUser) {
