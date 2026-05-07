@@ -4,7 +4,18 @@ import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { Text, useTheme, Chip } from 'react-native-paper';
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { AppStackParamList } from '@/lib/navigation';
-import { getSharedAccount, deleteSharedAccount, getGoals, deleteGoal, getContributions, createContribution, inviteMember, getAccountMembers, removeMember } from '@/lib/api';
+import {
+  getSharedAccount,
+  deleteSharedAccount,
+  getGoals,
+  deleteGoal,
+  getContributions,
+  createContribution,
+  createWithdrawal,
+  inviteMember,
+  getAccountMembers,
+  removeMember
+} from '@/lib/api';
 import { logger } from '@/lib/logger';
 import { ScreenHeader, CustomButton, CustomCard } from '@/components';
 import { generateColorFromId } from '@/lib/colors';
@@ -61,6 +72,8 @@ const AccountDetailScreen: React.FC<Props> = ({ route, navigation }) => {
   const [inviteEmail, setInviteEmail] = useState('');
   const [contributionAmount, setContributionAmount] = useState('');
   const [contributionDesc, setContributionDesc] = useState('');
+  const [withdrawalAmount, setWithdrawalAmount] = useState('');
+  const [withdrawalDesc, setWithdrawalDesc] = useState('');
 
   useEffect(() => {
     loadData();
@@ -129,9 +142,6 @@ const AccountDetailScreen: React.FC<Props> = ({ route, navigation }) => {
       setGoals(parsedGoals);
       setContributions(parsedContributions);
 
-      // Log pour diagnostiquer
-      console.log('[AccountDetailScreen] Contributions reçues:', parsedContributions);
-      console.log('[AccountDetailScreen] Members reçus:', parsedMembers);
     } catch (error) {
       const err = error instanceof Error ? error : new Error(String(error));
       await logger.error(MODULE, 'Erreur chargement', err);
@@ -208,6 +218,27 @@ const AccountDetailScreen: React.FC<Props> = ({ route, navigation }) => {
       Alert.alert('Succès', 'Contribution ajoutée!');
       setContributionAmount('');
       setContributionDesc('');
+      await loadData();
+    } catch (error) {
+      Alert.alert('Erreur', String(error));
+    }
+  };
+
+  const handleWithdrawal = async (): Promise<void> => {
+    if (!account || !withdrawalAmount.trim()) {
+      Alert.alert('Erreur', 'Veuillez entrer un montant');
+      return;
+    }
+    const amount = parseFloat(withdrawalAmount);
+    if (isNaN(amount) || amount <= 0) {
+      Alert.alert('Erreur', 'Montant invalide');
+      return;
+    }
+    try {
+      await createWithdrawal(account.id, amount, withdrawalDesc);
+      Alert.alert('Succès', 'Retrait enregistré!');
+      setWithdrawalAmount('');
+      setWithdrawalDesc('');
       await loadData();
     } catch (error) {
       Alert.alert('Erreur', String(error));
@@ -320,8 +351,6 @@ const AccountDetailScreen: React.FC<Props> = ({ route, navigation }) => {
                         const memberContributions = contributions.filter(c => c.userId === member.id);
                         const memberTotal = memberContributions.reduce((sum, c) => sum + c.amount, 0);
                         const memberWidthPercent = (memberTotal / account.targetAmount) * 100;
-
-                        console.log(`[ProgressBar] ${member.firstName}: $${memberTotal} / ${account.targetAmount} = ${memberWidthPercent}%`);
 
                         return memberWidthPercent > 0 ? (
                           <View
@@ -440,10 +469,19 @@ const AccountDetailScreen: React.FC<Props> = ({ route, navigation }) => {
           <>
             <CustomCard>
               <View style={{ gap: 12 }}>
-                <Text variant="titleMedium" style={{ fontWeight: '700' }}>Ajouter</Text>
+                <Text variant="titleMedium" style={{ fontWeight: '700' }}>➕ Ajouter une contribution</Text>
                 <TextInput placeholder="Montant" value={contributionAmount} onChangeText={setContributionAmount} keyboardType="decimal-pad" style={{ borderWidth: 1, borderColor: theme.colors.outline, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 10, color: theme.colors.onBackground }} placeholderTextColor={theme.colors.onSurfaceVariant} />
                 <TextInput placeholder="Description" value={contributionDesc} onChangeText={setContributionDesc} multiline numberOfLines={2} style={{ borderWidth: 1, borderColor: theme.colors.outline, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 10, color: theme.colors.onBackground }} placeholderTextColor={theme.colors.onSurfaceVariant} />
                 <CustomButton label="➕ Ajouter" onPress={handleAddContribution} variant="secondary" />
+              </View>
+            </CustomCard>
+
+            <CustomCard>
+              <View style={{ gap: 12 }}>
+                <Text variant="titleMedium" style={{ fontWeight: '700' }}>➖ Enregistrer un retrait</Text>
+                <TextInput placeholder="Montant" value={withdrawalAmount} onChangeText={setWithdrawalAmount} keyboardType="decimal-pad" style={{ borderWidth: 1, borderColor: theme.colors.outline, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 10, color: theme.colors.onBackground }} placeholderTextColor={theme.colors.onSurfaceVariant} />
+                <TextInput placeholder="Motif du retrait" value={withdrawalDesc} onChangeText={setWithdrawalDesc} multiline numberOfLines={2} style={{ borderWidth: 1, borderColor: theme.colors.outline, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 10, color: theme.colors.onBackground }} placeholderTextColor={theme.colors.onSurfaceVariant} />
+                <CustomButton label="➖ Enregistrer le retrait" onPress={handleWithdrawal} variant="danger" />
               </View>
             </CustomCard>
             {contributions.length === 0 ? (

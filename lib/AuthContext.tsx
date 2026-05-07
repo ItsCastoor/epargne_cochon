@@ -53,23 +53,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       try {
         const savedToken = await authLib.getToken();
         const savedUser = await authLib.getUser();
-        console.log('[AuthContext] Token récupéré au démarrage:', savedToken ? 'OUI' : 'NON');
-        console.log('[AuthContext] User récupéré au démarrage:', savedUser ? `${savedUser.firstName} ${savedUser.lastName}` : 'NON');
 
         if (!savedToken) {
           // Pas de token trouvé — c'est normal
           setTokenState(null);
           setUser(null);
-          logger.info(MODULE, 'Aucun token trouvé au chargement').catch(() => {});
         } else {
           // Token trouvé — on le garde et on restaure aussi le user
-          console.log('[AuthContext] Token restauré de la session');
           setTokenState(savedToken);
           if (savedUser) {
             setUser(savedUser);
-            console.log('[AuthContext] User restauré de la session');
           }
-          logger.info(MODULE, 'Session restaurée au chargement').catch(() => {});
         }
       } catch (error) {
         const err = error instanceof Error ? error : new Error(String(error));
@@ -87,10 +81,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const login = async (email: string, password: string): Promise<void> => {
     try {
-      console.log('[AuthContext] Login attempt for:', email);
       const response: ApiResponse = await apiLogin(email, password);
-
-      logger.info(MODULE, 'Réponse login reçue', { email }).catch(() => {});
 
       const { user, token } = extractAuthData(response);
 
@@ -98,8 +89,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       await authLib.setUser(user || { id: '', email, firstName: '', lastName: '' });
       setTokenState(token);
       setUser(user);
-      logger.info(MODULE, 'Connexion réussie').catch(() => {});
-      console.log('[AuthContext] Login successful');
     } catch (error) {
       const err = error instanceof Error ? error : new Error(String(error));
       console.error('[AuthContext] Erreur de connexion:', err.message);
@@ -113,16 +102,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       console.log('[AuthContext] Register attempt for:', email);
       const response: ApiResponse = await apiRegister(email, password, firstName, lastName);
 
-      logger.info(MODULE, 'Réponse register reçue', { email, firstName, lastName }).catch(() => {});
-
       const { user, token } = extractAuthData(response);
 
       await authLib.setToken(token);
       await authLib.setUser(user || { id: '', email, firstName, lastName });
       setTokenState(token);
       setUser(user);
-      logger.info(MODULE, 'Inscription réussie').catch(() => {});
-      console.log('[AuthContext] Register successful, isAuthenticated:', !!token);
     } catch (error) {
       const err = error instanceof Error ? error : new Error(String(error));
       console.error('[AuthContext] Erreur d\'inscription:', err.message);
@@ -137,7 +122,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       await authLib.removeUser();
       setTokenState(null);
       setUser(null);
-      logger.info(MODULE, 'Déconnexion réussie').catch(() => {});
     } catch (error) {
       const err = error instanceof Error ? error : new Error(String(error));
       logger.error(MODULE, 'Erreur de déconnexion', err).catch(() => {});

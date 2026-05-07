@@ -19,12 +19,6 @@ export class ApiError extends Error {
 const API_URL = process.env.EXPO_PUBLIC_API_URL || process.env.REACT_APP_API_URL || 'https://apiepargne.tpareschi.eu';
 const MODULE = 'API';
 
-// Log au démarrage pour vérifier l'URL
-if (typeof window !== 'undefined') {
-  console.log(`[API] 🌐 API_URL définie à: ${API_URL}`);
-  console.log(`[API] EXPO_PUBLIC_API_URL: ${process.env.EXPO_PUBLIC_API_URL || 'non défini'}`);
-}
-
 // ⚠️ IMPORTANT: L'API doit retourner les en-têtes CORS corrects
 // Si vous voyez "Failed to fetch", c'est que le backend n'envoie pas:
 //   Access-Control-Allow-Origin: http://localhost:8081
@@ -125,8 +119,6 @@ export async function register(email: string, password: string, firstName: strin
 }
 
 export async function login(email: string, password: string): Promise<ApiResponse> {
-  console.log(`[API-Login] 🔄 Tentative de connexion: ${email}`);
-  console.log(`[API-Login] 🌐 URL: ${API_URL}/api/v1/auth/login`);
 
   try {
     const result = await apiCall<ApiResponse>('/api/v1/auth/login', {
@@ -199,6 +191,14 @@ export async function createContribution(accountId: string, amount: number, desc
 
 export async function getContributions(accountId: string): Promise<ApiResponse> {
   return apiCall<ApiResponse>(`/api/v1/shared-accounts/${accountId}/contributions`);
+}
+
+// Withdrawals
+export async function createWithdrawal(accountId: string, amount: number, description?: string): Promise<ApiResponse> {
+  return apiCall<ApiResponse>(`/api/v1/shared-accounts/${accountId}/withdrawals`, {
+    method: 'POST',
+    body: JSON.stringify({ amount, description }),
+  });
 }
 
 // Notifications
