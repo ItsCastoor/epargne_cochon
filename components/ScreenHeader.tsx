@@ -35,49 +35,88 @@ export const ScreenHeader: React.FC<ScreenHeaderProps> = ({
       style={[
         {
           backgroundColor: gradientBg[gradient],
-          paddingHorizontal: 24,
+          paddingHorizontal: 20,
           paddingVertical: 24,
-          paddingTop: 48,
-          borderBottomLeftRadius: 20,
-          borderBottomRightRadius: 20,
+          paddingTop: 56,
+          borderBottomLeftRadius: 24,
+          borderBottomRightRadius: 24,
           shadowColor: '#000',
-          shadowOpacity: 0.1,
-          shadowRadius: 10,
-          elevation: 5,
+          shadowOpacity: 0.12,
+          shadowRadius: 12,
+          elevation: 6,
+          overflow: 'hidden',
         },
         style,
       ]}
     >
+      {/* Decorative background accents */}
+      <View
+        style={{
+          position: 'absolute',
+          top: -40,
+          right: -30,
+          width: 140,
+          height: 140,
+          borderRadius: 70,
+          backgroundColor: 'rgba(255, 255, 255, 0.12)',
+        }}
+      />
+      <View
+        style={{
+          position: 'absolute',
+          bottom: -60,
+          left: -20,
+          width: 180,
+          height: 180,
+          borderRadius: 90,
+          backgroundColor: 'rgba(255, 255, 255, 0.08)',
+        }}
+      />
+
       <View
         style={{
           flexDirection: 'row',
           justifyContent: 'space-between',
-          alignItems: 'flex-start',
+          alignItems: 'center',
+          gap: 16,
+          width: '100%',
         }}
       >
-        <View style={{ flex: 1 }}>
+        <View style={{ flex: 1, alignItems: 'flex-start' }}>
           {subtitle && (
-            <Text
-              variant="bodySmall"
+            <View
               style={{
-                color: 'rgba(255, 255, 255, 0.8)',
-                marginBottom: 4,
+                alignSelf: 'flex-start',
+                paddingHorizontal: 10,
+                paddingVertical: 4,
+                borderRadius: 999,
+                backgroundColor: 'rgba(255, 255, 255, 0.16)',
+                marginBottom: 10,
               }}
             >
-              {subtitle}
-            </Text>
+              <Text
+                variant="labelSmall"
+                style={{
+                  color: 'rgba(255, 255, 255, 0.9)',
+                  letterSpacing: 0.4,
+                }}
+              >
+                {subtitle}
+              </Text>
+            </View>
           )}
           <Text
             variant="headlineMedium"
             style={{
               color: '#fff',
-              fontWeight: '700',
+              fontWeight: '800',
+              letterSpacing: 0.2,
             }}
           >
             {title}
           </Text>
         </View>
-        {rightContent && <>{rightContent}</>}
+        {rightContent && <View style={{ alignItems: 'flex-end' }}>{rightContent}</View>}
       </View>
     </View>
   );

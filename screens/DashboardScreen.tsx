@@ -98,8 +98,8 @@ const DashboardScreen: React.FC<Props> = () => {
       {/* Header */}
       <ScreenHeader
         gradient="dashboard"
-        title={`Tableau de bord${'\n'}${user?.firstName}`}
-        subtitle="Bienvenue 👋"
+        title="Votre tableau de bord"
+        subtitle={`Bienvenue 👋\n${user?.firstName || user?.lastName ? ` ${[user?.firstName, user?.lastName].filter(Boolean).join(' ')}` : ''}`}
         rightContent={
           <CustomButton
             label="Déconnexion"

@@ -281,7 +281,7 @@ const AccountDetailScreen: React.FC<Props> = ({ route, navigation }) => {
   ];
 
   return (
-    <View style={{ backgroundColor: theme.colors.background }}>
+    <View style={{ flex: 1, backgroundColor: theme.colors.background }}>
       <ScreenHeader gradient="dashboard" title={account.name} subtitle={account.description} />
 
       {/* Back Button */}
@@ -302,38 +302,63 @@ const AccountDetailScreen: React.FC<Props> = ({ route, navigation }) => {
         <Text style={{ color: theme.colors.primary, fontWeight: '600', fontSize: 14 }}>Retour</Text>
       </Pressable>
 
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ backgroundColor: theme.colors.surface, borderBottomWidth: 1, borderBottomColor: theme.colors.outline }}>
-        <View style={{ flexDirection: 'row', gap: 0}}>
-          {tabs.map((tab) => (
-            <Pressable
-              key={tab.id}
-              onPress={() => setActiveTab(tab.id)}
-              style={{
-                flexDirection: 'column',
-                alignItems: 'center',
-                justifyContent: 'center',
-                paddingVertical: 8,
-                paddingHorizontal: 12,
-                borderBottomWidth: 3,
-                borderBottomColor: activeTab === tab.id ? theme.colors.primary : 'transparent',
-              }}
-            >
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 2 }}>
-                <MaterialCommunityIcons
-                  name={tab.icon}
-                  size={18}
-                  color={activeTab === tab.id ? theme.colors.primary : theme.colors.onSurfaceVariant}
-                />
-                <Text style={{ fontWeight: activeTab === tab.id ? '700' : '600', fontSize: 12, color: activeTab === tab.id ? theme.colors.primary : theme.colors.onSurfaceVariant }}>
-                  {tab.label}
-                </Text>
-              </View>
-            </Pressable>
-          ))}
-        </View>
-      </ScrollView>
+      <View
+        style={{
+          backgroundColor: theme.colors.surface,
+          borderBottomWidth: 1,
+          borderBottomColor: theme.colors.outline,
+          height: 56,
+          overflow: 'hidden',
+        }}
+      >
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          style={{ flex: 1 }}
+          contentContainerStyle={{ alignItems: 'center', height: 56 }}
+        >
+          <View style={{ flexDirection: 'row', gap: 0, alignItems: 'center' }}>
+            {tabs.map((tab) => (
+              <Pressable
+                key={tab.id}
+                onPress={() => setActiveTab(tab.id)}
+                style={{
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  paddingVertical: 8,
+                  paddingHorizontal: 12,
+                  minWidth: 88,
+                  height: 56,
+                  borderBottomWidth: 3,
+                  borderBottomColor: activeTab === tab.id ? theme.colors.primary : 'transparent',
+                }}
+              >
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 2 }}>
+                  <MaterialCommunityIcons
+                    name={tab.icon}
+                    size={18}
+                    color={activeTab === tab.id ? theme.colors.primary : theme.colors.onSurfaceVariant}
+                  />
+                  <Text
+                    numberOfLines={1}
+                    ellipsizeMode="tail"
+                    style={{
+                      fontWeight: activeTab === tab.id ? '700' : '600',
+                      fontSize: 12,
+                      color: activeTab === tab.id ? theme.colors.primary : theme.colors.onSurfaceVariant,
+                    }}
+                  >
+                    {tab.label}
+                  </Text>
+                </View>
+              </Pressable>
+            ))}
+          </View>
+        </ScrollView>
+      </View>
 
-      <ScrollView contentContainerStyle={{ flex:1, paddingHorizontal: 16, paddingVertical: 20, gap: 16 }}>
+      <ScrollView contentContainerStyle={{ paddingHorizontal: 16, paddingVertical: 20, paddingBottom: 32, gap: 16 }}>
         {activeTab === 'details' && (
           <>
             <CustomCard>

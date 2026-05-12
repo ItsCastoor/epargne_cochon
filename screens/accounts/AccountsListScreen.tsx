@@ -4,7 +4,7 @@ import { Text, useTheme, Chip, FAB } from 'react-native-paper';
 import { BottomTabScreenProps } from '@react-navigation/bottom-tabs';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
-import { getSharedAccounts } from '@/lib/api';
+import { getSharedAccounts, getAccountMembers } from '@/lib/api';
 import { logger } from '@/lib/logger';
 import { TabParamList } from '@/lib/navigation';
 import { CustomCard, ScreenHeader, CustomButton } from '@/components';
@@ -14,6 +14,11 @@ interface Account {
   name: string;
   description: string;
   currency: string;
+  currentAmount?: number;
+  targetAmount?: number;
+  members?: Array<{ id: string }>;
+  membersCount?: number;
+  members_count?: number;
 }
 
 const MODULE = 'AccountsListScreen';
@@ -57,7 +62,30 @@ const AccountsListScreen: React.FC<Props> = () => {
         accountList = Object.values(data as Record<string, unknown>) as Account[];
       }
 
-      setAccounts(accountList);
+      const accountsWithCounts = await Promise.all(
+        accountList.map(async (account) => {
+          try {
+            const membersData = await getAccountMembers(account.id);
+            let members: Array<{ id: string }> = [];
+
+            if (Array.isArray(membersData)) {
+              members = membersData as Array<{ id: string }>;
+            } else if ((membersData as Record<string, unknown>).data && Array.isArray((membersData as Record<string, unknown>).data)) {
+              members = (membersData as Record<string, unknown>).data as Array<{ id: string }>;
+            } else if ((membersData as Record<string, unknown>).members && Array.isArray((membersData as Record<string, unknown>).members)) {
+              members = (membersData as Record<string, unknown>).members as Array<{ id: string }>;
+            } else if ((membersData as Record<string, unknown>)[0]) {
+              members = Object.values(membersData as Record<string, unknown>) as Array<{ id: string }>;
+            }
+
+            return { ...account, membersCount: members.length };
+          } catch {
+            return account;
+          }
+        })
+      );
+
+      setAccounts(accountsWithCounts);
     } catch (error) {
       const err = error instanceof Error ? error : new Error(String(error));
       console.error('[AccountsListScreen] ❌ Error:', err.message, error);
@@ -130,63 +158,104 @@ const AccountsListScreen: React.FC<Props> = () => {
                 onPress={() => handleAccountDetail(account.id)}
                 style={{
                   width: cardWidth,
-                  borderLeftColor: theme.colors.tertiary,
-                  borderLeftWidth: 4,
+                  borderLeftColor: 'transparent',
+                  borderLeftWidth: 0,
                 }}
                 elevated={true}
               >
-                <View style={{
-                  flexDirection: 'row',
-                  justifyContent: 'space-between',
-                  alignItems: 'flex-start',
-                  marginBottom: 12,
-                }}>
-                  <View style={{ flex: 1 }}>
-                    <Text variant="titleLarge" style={{
-                      fontWeight: '700',
-                      color: theme.colors.tertiary,
-                      marginBottom: 4,
-                    }}>
-                      {account.name}
-                    </Text>
-                    <Text variant="bodySmall" style={{
-                      color: theme.colors.onSurfaceVariant,
-                      marginBottom: 8,
-                    }}>
-                      {account.description}
-                    </Text>
-                  </View>
-                  <MaterialCommunityIcons name="wallet" size={32} color={theme.colors.tertiary} />
-                </View>
-
-                {/* Currency Badge */}
-                <Chip
-                  icon="currency-eur"
+                <View
                   style={{
-                    backgroundColor: theme.colors.primaryContainer,
-                    alignSelf: 'flex-start',
+                    flexDirection: 'row',
+                    justifyContent: 'space-between',
+                    alignItems: 'flex-start',
+                    marginBottom: 12,
+                    gap: 12,
                   }}
                 >
-                  <Text style={{ fontWeight: '600', color: theme.colors.primary }}>
-                    {account.currency}
-                  </Text>
-                </Chip>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, flex: 1 }}>
+                    <View
+                      style={{
+                        width: 44,
+                        height: 44,
+                        borderRadius: 12,
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        backgroundColor: theme.colors.tertiaryContainer,
+                      }}
+                    >
+                      <MaterialCommunityIcons name="wallet" size={22} color={theme.colors.tertiary} />
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <Text
+                        variant="titleMedium"
+                        style={{
+                          fontWeight: '700',
+                          color: theme.colors.onBackground,
+                          marginBottom: 4,
+                        }}
+                      >
+                        {account.name}
+                      </Text>
+                      <Text
+                        variant="bodySmall"
+                        style={{
+                          color: theme.colors.onSurfaceVariant,
+                        }}
+                      >
+                        {account.description}
+                      </Text>
+                    </View>
+                  </View>
+                  <MaterialCommunityIcons name="chevron-right" size={24} color={theme.colors.onSurfaceVariant} />
+                </View>
 
-                {/* Footer */}
-                <View style={{
-                  marginTop: 12,
-                  paddingTop: 12,
-                  borderTopColor: theme.colors.outline,
-                  borderTopWidth: 1,
-                  flexDirection: 'row',
-                  justifyContent: 'flex-end',
-                }}>
-                  <Text variant="labelSmall" style={{
-                    color: theme.colors.primary,
-                    fontWeight: '600',
-                  }}>
-                    Cliquez pour plus →
+                <View style={{ flexDirection: 'row', gap: 8, flexWrap: 'wrap' }}>
+                  <Chip
+                    icon="currency-eur"
+                    style={{
+                      backgroundColor: theme.colors.primaryContainer,
+                    }}
+                  >
+                    <Text style={{ fontWeight: '600', color: theme.colors.primary }}>
+                      {(account.currentAmount ?? 0).toFixed(0)} {account.currency}
+                    </Text>
+                  </Chip>
+                  <Chip
+                    icon="account-multiple"
+                    style={{
+                      backgroundColor: theme.colors.surfaceVariant,
+                    }}
+                  >
+                    <Text style={{ fontWeight: '600', color: theme.colors.onSurfaceVariant }}>
+                      {(() => {
+                        const memberCount = account.members?.length ?? account.membersCount ?? account.members_count ?? 1;
+                        return memberCount >= 2 ? 'Compte partagé' : 'Compte individuel';
+                      })()}
+                    </Text>
+                  </Chip>
+                </View>
+
+                <View
+                  style={{
+                    marginTop: 12,
+                    paddingTop: 12,
+                    borderTopColor: theme.colors.outline,
+                    borderTopWidth: 1,
+                    flexDirection: 'row',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                  }}
+                >
+                  <Text
+                    variant="labelSmall"
+                    style={{
+                      color: theme.colors.primary,
+                      fontWeight: '600',
+                    }}
+                  >
+                    Voir les details
                   </Text>
+                  <MaterialCommunityIcons name="arrow-right" size={18} color={theme.colors.primary} />
                 </View>
               </CustomCard>
             ))}
