@@ -28,9 +28,11 @@ export const CustomCard: React.FC<CustomCardProps> = ({
           {
             backgroundColor: theme.colors.surface,
             borderColor: theme.colors.outline,
+            borderWidth: 1,
+            borderRadius: 16,
             marginBottom: 12,
           },
-          elevated && { elevation: 4 },
+          elevated && { elevation: 4, shadowOpacity: 0.08, shadowRadius: 10 },
           style,
         ]}
       >
@@ -45,9 +47,11 @@ export const CustomCard: React.FC<CustomCardProps> = ({
         {
           backgroundColor: theme.colors.surface,
           borderColor: theme.colors.outline,
+          borderWidth: 1,
+          borderRadius: 16,
           marginBottom: 12,
         },
-        elevated && { elevation: 4 },
+        elevated && { elevation: 4, shadowOpacity: 0.08, shadowRadius: 10 },
         style,
       ]}
     >
@@ -57,4 +61,3 @@ export const CustomCard: React.FC<CustomCardProps> = ({
 };
 
 export default CustomCard;
-

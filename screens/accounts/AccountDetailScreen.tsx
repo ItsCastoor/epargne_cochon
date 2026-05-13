@@ -47,6 +47,7 @@ interface Contribution {
   description?: string;
   createdAt: string;
   userId: string;
+  type?: 'CONTRIBUTION' | 'WITHDRAWAL';
   User?: {
     id: string;
     email: string;
@@ -130,10 +131,10 @@ const AccountDetailScreen: React.FC<Props> = ({ route, navigation }) => {
       let parsedContributions: Contribution[] = [];
       if (Array.isArray(contributionsData)) {
         parsedContributions = contributionsData;
-      } else if ((contributionsData as Record<string, unknown>).data && Array.isArray((contributionsData as Record<string, unknown>).data)) {
-        parsedContributions = (contributionsData as Record<string, unknown>).data as Contribution[];
       } else if ((contributionsData as Record<string, unknown>).contributions && Array.isArray((contributionsData as Record<string, unknown>).contributions)) {
         parsedContributions = (contributionsData as Record<string, unknown>).contributions as Contribution[];
+      } else if ((contributionsData as Record<string, unknown>).data && Array.isArray((contributionsData as Record<string, unknown>).data)) {
+        parsedContributions = (contributionsData as Record<string, unknown>).data as Contribution[];
       } else if ((contributionsData as Record<string, unknown>)[0]) {
         parsedContributions = Object.values(contributionsData as Record<string, unknown>) as Contribution[];
       }
@@ -273,6 +274,33 @@ const AccountDetailScreen: React.FC<Props> = ({ route, navigation }) => {
 
   const progress = (account.currentAmount / account.targetAmount) * 100;
   const remaining = account.targetAmount - account.currentAmount;
+  const netByUser = (account.members ?? []).reduce<Record<string, number>>((acc, member) => {
+    acc[member.id] = 0;
+    return acc;
+  }, {});
+  for (const item of contributions) {
+    const delta = item.type === 'WITHDRAWAL' ? -item.amount : item.amount;
+    netByUser[item.userId] = (netByUser[item.userId] ?? 0) + delta;
+  }
+  const sanitizedNetByUser = Object.fromEntries(
+    Object.entries(netByUser).map(([userId, value]) => [userId, Math.max(0, value)])
+  );
+  const totalNet = Object.values(sanitizedNetByUser).reduce((sum, value) => sum + value, 0);
+  const userSummaries = (account.members ?? []).map((member) => {
+    const contributionTotal = contributions
+      .filter((item) => item.userId === member.id && item.type !== 'WITHDRAWAL')
+      .reduce((sum, item) => sum + item.amount, 0);
+    const withdrawalTotal = contributions
+      .filter((item) => item.userId === member.id && item.type === 'WITHDRAWAL')
+      .reduce((sum, item) => sum + item.amount, 0);
+
+    return {
+      member,
+      contributionTotal,
+      withdrawalTotal,
+      netTotal: Math.max(0, contributionTotal - withdrawalTotal),
+    };
+  });
   const tabs: { id: TabType; label: string; icon: any }[] = [
     { id: 'details', label: 'Détails', icon: 'information-outline' },
     { id: 'members', label: 'Membres', icon: 'account-multiple' },
@@ -312,10 +340,11 @@ const AccountDetailScreen: React.FC<Props> = ({ route, navigation }) => {
         }}
       >
         <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          style={{ flex: 1 }}
-          contentContainerStyle={{ alignItems: 'center', height: 56 }}
+            horizontal
+            scrollEnabled={true}
+            showsHorizontalScrollIndicator={false}
+            showsVerticalScrollIndicator={false}
+            style={{ flex: 1 }}
         >
           <View style={{ flexDirection: 'row', gap: 0, alignItems: 'center' }}>
             {tabs.map((tab) => (
@@ -370,11 +399,10 @@ const AccountDetailScreen: React.FC<Props> = ({ route, navigation }) => {
 
                 {/* Barre de progression colorée par contributeur */}
                 <View style={{ height: 8, backgroundColor: theme.colors.surfaceVariant, borderRadius: 4, overflow: 'hidden', flexDirection: 'row' }}>
-                  {account.members && account.members.length > 0 && contributions.length > 0 && account.targetAmount > 0 ? (
+                  {account.members && account.members.length > 0 && account.targetAmount > 0 ? (
                     <>
                       {account.members.map((member) => {
-                        const memberContributions = contributions.filter(c => c.userId === member.id);
-                        const memberTotal = memberContributions.reduce((sum, c) => sum + c.amount, 0);
+                        const memberTotal = sanitizedNetByUser[member.id] ?? 0;
                         const memberWidthPercent = (memberTotal / account.targetAmount) * 100;
 
                         return memberWidthPercent > 0 ? (
@@ -391,7 +419,7 @@ const AccountDetailScreen: React.FC<Props> = ({ route, navigation }) => {
                       <View
                         style={{
                           height: '100%',
-                          width: `${((account.targetAmount - account.currentAmount) / account.targetAmount) * 100}%`,
+                          width: `${Math.max(0, account.targetAmount - totalNet) / account.targetAmount * 100}%`,
                           backgroundColor: theme.colors.surfaceVariant,
                         }}
                       />
@@ -509,6 +537,31 @@ const AccountDetailScreen: React.FC<Props> = ({ route, navigation }) => {
                 <CustomButton label="➖ Enregistrer le retrait" onPress={handleWithdrawal} variant="danger" />
               </View>
             </CustomCard>
+            <CustomCard>
+              <View style={{ gap: 12 }}>
+                <Text variant="titleMedium" style={{ fontWeight: '700' }}>📊 Résumé par utilisateur</Text>
+                {userSummaries.map(({ member, contributionTotal, withdrawalTotal, netTotal }) => (
+                  <View key={member.id} style={{ flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 6 }}>
+                    <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: generateColorFromId(member.id) }} />
+                    <View style={{ flex: 1 }}>
+                      <Text variant="bodySmall" style={{ fontWeight: '600' }}>{member.firstName} {member.lastName}</Text>
+                      <Text variant="labelSmall" style={{ color: theme.colors.onSurfaceVariant }}>
+                        +{contributionTotal.toFixed(2)} {account.currency} • -{withdrawalTotal.toFixed(2)} {account.currency}
+                      </Text>
+                    </View>
+                    <Chip style={{ backgroundColor: theme.colors.primaryContainer }}>
+                      <Text style={{ color: theme.colors.primary, fontWeight: '600' }}>{netTotal.toFixed(2)} {account.currency}</Text>
+                    </Chip>
+                  </View>
+                ))}
+                <View style={{ borderTopWidth: 1, borderTopColor: theme.colors.outline, paddingTop: 8, marginTop: 4, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <Text variant="bodySmall" style={{ fontWeight: '700' }}>Total net</Text>
+                  <Text variant="bodySmall" style={{ color: theme.colors.primary, fontWeight: '700' }}>
+                    {totalNet.toFixed(2)} {account.currency}
+                  </Text>
+                </View>
+              </View>
+            </CustomCard>
             {contributions.length === 0 ? (
               <CustomCard style={{ backgroundColor: theme.colors.primaryContainer }}><Text variant="bodyMedium" style={{ color: theme.colors.primary, textAlign: 'center' }}>💰 Aucune contribution</Text></CustomCard>
             ) : (
@@ -545,13 +598,27 @@ const AccountDetailScreen: React.FC<Props> = ({ route, navigation }) => {
                       : contributor
                       ? `${contributor.firstName} ${contributor.lastName}`
                       : 'Anonyme';
+                    const isWithdrawal = contrib.type === 'WITHDRAWAL';
 
                     return (
                       <CustomCard key={contrib.id} style={{ borderLeftColor: memberColor, borderLeftWidth: 4 }}>
                         <View style={{ gap: 8 }}>
-                          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
                             <Text variant="titleSmall" style={{ color: memberColor, fontWeight: '700', flex: 1 }}>👤 {displayName}</Text>
-                            <Text variant="titleSmall" style={{ fontWeight: '700', color: theme.colors.tertiary }}>{contrib.amount.toFixed(2)} {account.currency}</Text>
+                            {isWithdrawal && (
+                              <Chip style={{ backgroundColor: theme.colors.errorContainer }}>
+                                <Text style={{ color: theme.colors.error, fontWeight: '600' }}>Retrait</Text>
+                              </Chip>
+                            )}
+                            <Text
+                              variant="titleSmall"
+                              style={{
+                                fontWeight: '700',
+                                color: isWithdrawal ? theme.colors.error : theme.colors.tertiary,
+                              }}
+                            >
+                              {isWithdrawal ? '-' : ''}{contrib.amount.toFixed(2)} {account.currency}
+                            </Text>
                           </View>
                           <Text variant="labelSmall" style={{ color: theme.colors.onSurfaceVariant }}>{new Date(contrib.createdAt).toLocaleDateString('fr-FR')}</Text>
                           {contrib.description && <Text variant="bodySmall" style={{ marginTop: 4, fontStyle: 'italic', color: theme.colors.onSurfaceVariant }}>{contrib.description}</Text>}

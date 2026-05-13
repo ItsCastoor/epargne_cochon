@@ -36,7 +36,7 @@ export const CustomTextInput: React.FC<TextInputProps> = ({
 }) => {
   const theme = useTheme();
   const borderColor = error ? theme.colors.error : theme.colors.outline;
-  const backgroundColor = editable ? theme.colors.surface : '#f3f4f6';
+  const backgroundColor = editable ? theme.colors.surfaceVariant : '#f1f5f9';
 
   return (
     <View style={{ marginBottom: 12 }}>
@@ -68,7 +68,7 @@ export const CustomTextInput: React.FC<TextInputProps> = ({
           paddingVertical: 12,
           borderWidth: 1,
           borderColor,
-          borderRadius: 8,
+          borderRadius: 12,
           backgroundColor,
           color: theme.colors.onBackground,
           fontSize: 16,
@@ -87,4 +87,3 @@ export const CustomTextInput: React.FC<TextInputProps> = ({
 };
 
 export default CustomTextInput;
-

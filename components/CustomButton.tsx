@@ -59,12 +59,16 @@ export const CustomButton: React.FC<CustomButtonProps> = ({
         justifyContent: 'center',
         alignItems: 'center',
         paddingVertical: 12,
-        paddingHorizontal: 16,
-        borderRadius: 8,
+        paddingHorizontal: 18,
+        borderRadius: 12,
         backgroundColor: colors.backgroundColor,
         opacity,
         width: fullWidth ? '100%' : 'auto',
         marginTop: 8,
+        shadowColor: '#000',
+        shadowOpacity: 0.12,
+        shadowRadius: 8,
+        elevation: 2,
       }}
     >
       {loading ? (
@@ -89,4 +93,3 @@ export const CustomButton: React.FC<CustomButtonProps> = ({
 };
 
 export default CustomButton;
-

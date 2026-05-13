@@ -8,48 +8,48 @@ export const appTheme = {
   ...MD3LightTheme,
   colors: {
     ...MD3LightTheme.colors,
-    // Primaire - Bleu (confiance, finance)
-    primary: '#2563eb',
-    primaryContainer: '#dbeafe',
+    // Primaire - Teal (épargne, confiance)
+    primary: '#0f766e',
+    primaryContainer: '#ccfbf1',
 
-    // Secondaire - Vert (épargne, croissance)
-    secondary: '#059669',
-    secondaryContainer: '#d1fae5',
+    // Secondaire - Menthe (actions positives)
+    secondary: '#16a34a',
+    secondaryContainer: '#dcfce7',
 
-    // Tertière - Violet (comptes, catégories)
-    tertiary: '#7c3aed',
-    tertiaryContainer: '#ede9fe',
+    // Tertiaire - Ambre doux (accents)
+    tertiary: '#f59e0b',
+    tertiaryContainer: '#fef3c7',
 
     // Backgrounds
-    background: '#f9fafb',
+    background: '#f8fafc',
     surface: '#ffffff',
 
     // État
-    error: '#dc2626',
+    error: '#ef4444',
     errorContainer: '#fee2e2',
 
     // Textes
-    onBackground: '#1f2937',
-    onSurface: '#1f2937',
-    onSurfaceVariant: '#6b7280',
+    onBackground: '#0f172a',
+    onSurface: '#0f172a',
+    onSurfaceVariant: '#64748b',
     onError: '#ffffff',
-    
+
     // Surface variants
-    surfaceVariant: '#f3f4f6',
+    surfaceVariant: '#eef2f7',
 
     // Outline (bordures)
-    outline: '#e5e7eb',
-    outlineVariant: '#f3f4f6',
+    outline: '#e2e8f0',
+    outlineVariant: '#f1f5f9',
   },
   // Variantes personnalisées
   customColors: {
-    success: '#059669',
+    success: '#16a34a',
     warning: '#f59e0b',
-    info: '#3b82f6',
+    info: '#0ea5e9',
 
     // Gradients (utilisés dans certains écrans)
-    dashboardGradient: { start: '#1e40af', end: '#2563eb' },
-    accountsGradient: { start: '#6d28d9', end: '#7c3aed' },
+    dashboardGradient: { start: '#0f766e', end: '#14b8a6' },
+    accountsGradient: { start: '#0f766e', end: '#22c55e' },
   }
 };
 

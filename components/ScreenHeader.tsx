@@ -38,11 +38,11 @@ export const ScreenHeader: React.FC<ScreenHeaderProps> = ({
           paddingHorizontal: 20,
           paddingVertical: 24,
           paddingTop: 56,
-          borderBottomLeftRadius: 24,
-          borderBottomRightRadius: 24,
+          borderBottomLeftRadius: 28,
+          borderBottomRightRadius: 28,
           shadowColor: '#000',
           shadowOpacity: 0.12,
-          shadowRadius: 12,
+          shadowRadius: 14,
           elevation: 6,
           overflow: 'hidden',
         },
@@ -53,22 +53,22 @@ export const ScreenHeader: React.FC<ScreenHeaderProps> = ({
       <View
         style={{
           position: 'absolute',
-          top: -40,
+          top: -60,
           right: -30,
-          width: 140,
-          height: 140,
-          borderRadius: 70,
+          width: 180,
+          height: 180,
+          borderRadius: 90,
           backgroundColor: 'rgba(255, 255, 255, 0.12)',
         }}
       />
       <View
         style={{
           position: 'absolute',
-          bottom: -60,
-          left: -20,
-          width: 180,
-          height: 180,
-          borderRadius: 90,
+          bottom: -80,
+          left: -30,
+          width: 220,
+          height: 220,
+          borderRadius: 110,
           backgroundColor: 'rgba(255, 255, 255, 0.08)',
         }}
       />
@@ -87,17 +87,17 @@ export const ScreenHeader: React.FC<ScreenHeaderProps> = ({
             <View
               style={{
                 alignSelf: 'flex-start',
-                paddingHorizontal: 10,
-                paddingVertical: 4,
+                paddingHorizontal: 12,
+                paddingVertical: 6,
                 borderRadius: 999,
-                backgroundColor: 'rgba(255, 255, 255, 0.16)',
+                backgroundColor: 'rgba(255, 255, 255, 0.18)',
                 marginBottom: 10,
               }}
             >
               <Text
                 variant="labelSmall"
                 style={{
-                  color: 'rgba(255, 255, 255, 0.9)',
+                  color: 'rgba(255, 255, 255, 0.92)',
                   letterSpacing: 0.4,
                 }}
               >
