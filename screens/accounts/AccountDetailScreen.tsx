@@ -6,6 +6,7 @@ import {
   ActivityIndicator,
   Pressable,
   TextInput,
+  Platform,
 } from "react-native";
 import { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { Text, useTheme, Chip } from "react-native-paper";
@@ -30,6 +31,46 @@ import { generateColorFromId } from "@/lib/colors";
 import { useAuth } from "@/lib/AuthContext";
 
 type Props = NativeStackScreenProps<AppStackParamList, "AccountDetail">;
+
+/**
+ * Confirmation cross platform : Alert.alert ne déclenche pas onPress sur web
+ * quand il y a plusieurs boutons → on utilise window.confirm sur web.
+ */
+function confirmAction(
+  title: string,
+  message: string,
+  onConfirm: () => void,
+): void {
+  if (Platform.OS === "web") {
+    const ok =
+      typeof window !== "undefined" && window.confirm(`${title}\n\n${message}`);
+    if (ok) onConfirm();
+    return;
+  }
+  Alert.alert(title, message, [
+    { text: "Annuler", style: "cancel" },
+    { text: "Confirmer", style: "destructive", onPress: onConfirm },
+  ]);
+}
+
+/**
+ * Notification cross platform avec callback après fermeture.
+ * Sur web, Alert.alert + onPress ne déclenche pas la callback → on utilise window.alert.
+ */
+function notifyAndContinue(
+  title: string,
+  message: string,
+  onDismiss?: () => void,
+): void {
+  if (Platform.OS === "web") {
+    if (typeof window !== "undefined") {
+      window.alert(`${title}\n\n${message}`);
+    }
+    onDismiss?.();
+    return;
+  }
+  Alert.alert(title, message, [{ text: "OK", onPress: onDismiss }]);
+}
 
 interface Account {
   id: string;
@@ -92,6 +133,12 @@ const AccountDetailScreen: React.FC<Props> = ({ route, navigation }) => {
   const [withdrawalAmount, setWithdrawalAmount] = useState("");
   const [withdrawalDesc, setWithdrawalDesc] = useState("");
 
+  const isCurrentUserOwner = Boolean(
+    account?.members?.find(
+      (m) => m.id === user?.id && m.role?.toLowerCase() === "owner",
+    ),
+  );
+
   const currentUserDisplayName =
     `${user?.firstName ?? ""} ${user?.lastName ?? ""}`.trim() ||
     user?.email ||
@@ -109,7 +156,9 @@ const AccountDetailScreen: React.FC<Props> = ({ route, navigation }) => {
       return contribution.User.email.trim();
     }
 
-    const matchedMember = account?.members?.find((m) => m.id === contribution.userId);
+    const matchedMember = account?.members?.find(
+      (m) => m.id === contribution.userId,
+    );
     if (matchedMember) {
       return `${matchedMember.firstName} ${matchedMember.lastName}`.trim();
     }
@@ -251,35 +300,58 @@ const AccountDetailScreen: React.FC<Props> = ({ route, navigation }) => {
   };
 
   const handleDeleteAccount = (): void => {
-    Alert.alert("Confirmation", "Êtes-vous sûr?", [
-      { text: "Annuler", style: "cancel" },
-      { text: "Supprimer", style: "destructive", onPress: deleteAccount },
-    ]);
+    if (!isCurrentUserOwner) {
+      Alert.alert(
+        "Action non autorisée",
+        "Seul le propriétaire peut supprimer ce compte.",
+      );
+      return;
+    }
+    confirmAction(
+      "Supprimer le compte",
+      "Cette action est irréversible. Êtes-vous sûr ?",
+      () => {
+        deleteAccount();
+      },
+    );
   };
 
   const deleteAccount = async (): Promise<void> => {
     if (!account) return;
     try {
-      // Créer notification
+      setIsDeleting(true);
+
+      // Créer la notification AVANT la suppression
+      // (l'API pourrait refuser de la créer une fois le compte supprimé)
       await createNotification(
         account.id,
         "COMPTE_SUPP",
         "Compte supprimé",
         `${currentUserDisplayName} a supprimé le compte ${account.name}`,
       ).catch(() => {});
-      Alert.alert("Succès", "Compte supprimé", [
-        { text: "OK", onPress: () => navigation.goBack() },
-      ]);
-      setIsDeleting(true);
+
       await deleteSharedAccount(account.id);
+
+      await logger.info(MODULE, `Compte ${account.id} supprimé avec succès`);
+
+      notifyAndContinue("Succès", "Compte supprimé", () => navigation.goBack());
     } catch (error) {
-      Alert.alert("Erreur", "Impossible de supprimer");
+      const err = error instanceof Error ? error : new Error(String(error));
+      await logger.error(MODULE, "Erreur suppression compte", err);
+      Alert.alert("Erreur", `Impossible de supprimer : ${err.message}`);
     } finally {
       setIsDeleting(false);
     }
   };
 
   const handleInviteMember = async (): Promise<void> => {
+    if (!isCurrentUserOwner) {
+      Alert.alert(
+        "Action non autorisée",
+        "Seul le propriétaire peut inviter de nouveaux membres.",
+      );
+      return;
+    }
     if (!account || !inviteEmail.trim()) {
       Alert.alert("Erreur", "Veuillez entrer un email");
       return;
@@ -362,17 +434,17 @@ const AccountDetailScreen: React.FC<Props> = ({ route, navigation }) => {
   };
 
   const handleRemoveMember = (memberId: string, memberName: string): void => {
-    Alert.alert(
-      "Confirmation",
+    if (!isCurrentUserOwner) {
+      Alert.alert(
+        "Action non autorisée",
+        "Seul le propriétaire peut retirer des membres du compte.",
+      );
+      return;
+    }
+    confirmAction(
+      "Retirer le membre",
       `Êtes-vous sûr de vouloir retirer ${memberName} ?`,
-      [
-        { text: "Annuler", style: "cancel" },
-        {
-          text: "Retirer",
-          style: "destructive",
-          onPress: () => removeMemberConfirmed(memberId, memberName),
-        },
-      ],
+      () => removeMemberConfirmed(memberId, memberName),
     );
   };
 
@@ -381,6 +453,13 @@ const AccountDetailScreen: React.FC<Props> = ({ route, navigation }) => {
     memberName: string,
   ): Promise<void> => {
     if (!account) return;
+    if (!isCurrentUserOwner) {
+      Alert.alert(
+        "Action non autorisée",
+        "Seul le propriétaire peut retirer des membres du compte.",
+      );
+      return;
+    }
     try {
       await removeMember(account.id, memberId);
       await createNotification(
@@ -785,13 +864,15 @@ const AccountDetailScreen: React.FC<Props> = ({ route, navigation }) => {
               </CustomCard>
             )}
 
-            <CustomButton
-              label={isDeleting ? "Suppression..." : "🗑️ Supprimer"}
-              onPress={handleDeleteAccount}
-              variant="danger"
-              loading={isDeleting}
-              disabled={isDeleting}
-            />
+            {isCurrentUserOwner && (
+              <CustomButton
+                label={isDeleting ? "Suppression..." : "🗑️ Supprimer"}
+                onPress={handleDeleteAccount}
+                variant="danger"
+                loading={isDeleting}
+                disabled={isDeleting}
+              />
+            )}
           </>
         )}
 
@@ -861,21 +942,23 @@ const AccountDetailScreen: React.FC<Props> = ({ route, navigation }) => {
                               ? "propriétaire"
                               : "contributeur"}
                           </Chip>
-                          <Pressable
-                            onPress={() =>
-                              handleRemoveMember(
-                                member.id,
-                                `${member.firstName} ${member.lastName}`,
-                              )
-                            }
-                            style={{ padding: 8 }}
-                          >
-                            <MaterialCommunityIcons
-                              name="trash-can-outline"
-                              size={20}
-                              color={theme.colors.error}
-                            />
-                          </Pressable>
+                          {isCurrentUserOwner && member.id !== user?.id && (
+                            <Pressable
+                              onPress={() =>
+                                handleRemoveMember(
+                                  member.id,
+                                  `${member.firstName} ${member.lastName}`,
+                                )
+                              }
+                              style={{ padding: 8 }}
+                            >
+                              <MaterialCommunityIcons
+                                name="trash-can-outline"
+                                size={20}
+                                color={theme.colors.error}
+                              />
+                            </Pressable>
+                          )}
                         </View>
                       </View>
                     ))}
@@ -883,34 +966,36 @@ const AccountDetailScreen: React.FC<Props> = ({ route, navigation }) => {
                 </View>
               </CustomCard>
             )}
-            <CustomCard>
-              <View style={{ gap: 12 }}>
-                <Text variant="titleMedium" style={{ fontWeight: "700" }}>
-                  Inviter
-                </Text>
-                <TextInput
-                  placeholder="email@example.com"
-                  value={inviteEmail}
-                  onChangeText={setInviteEmail}
-                  keyboardType="email-address"
-                  autoCapitalize="none"
-                  style={{
-                    borderWidth: 1,
-                    borderColor: theme.colors.outline,
-                    borderRadius: 8,
-                    paddingHorizontal: 12,
-                    paddingVertical: 10,
-                    color: theme.colors.onBackground,
-                  }}
-                  placeholderTextColor={theme.colors.onSurfaceVariant}
-                />
-                <CustomButton
-                  label="📧 Envoyer"
-                  onPress={handleInviteMember}
-                  variant="secondary"
-                />
-              </View>
-            </CustomCard>
+            {isCurrentUserOwner && (
+              <CustomCard>
+                <View style={{ gap: 12 }}>
+                  <Text variant="titleMedium" style={{ fontWeight: "700" }}>
+                    Inviter
+                  </Text>
+                  <TextInput
+                    placeholder="email@example.com"
+                    value={inviteEmail}
+                    onChangeText={setInviteEmail}
+                    keyboardType="email-address"
+                    autoCapitalize="none"
+                    style={{
+                      borderWidth: 1,
+                      borderColor: theme.colors.outline,
+                      borderRadius: 8,
+                      paddingHorizontal: 12,
+                      paddingVertical: 10,
+                      color: theme.colors.onBackground,
+                    }}
+                    placeholderTextColor={theme.colors.onSurfaceVariant}
+                  />
+                  <CustomButton
+                    label="📧 Envoyer"
+                    onPress={handleInviteMember}
+                    variant="secondary"
+                  />
+                </View>
+              </CustomCard>
+            )}
           </>
         )}
 

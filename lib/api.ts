@@ -87,6 +87,7 @@ export async function apiCall<T>(
 
     const response = await fetch(url, fetchOptions);
 
+
     if (!response.ok) {
       let error: ApiResponse;
       const contentType = response.headers.get("content-type");
@@ -114,7 +115,21 @@ export async function apiCall<T>(
       );
     }
 
-    return (await response.json()) as T;
+    // 204 No Content ou body vide (typique sur DELETE)
+    if (response.status === 204) {
+      return {} as T;
+    }
+
+    const text = await response.text();
+    if (!text) {
+      return {} as T;
+    }
+
+    try {
+      return JSON.parse(text) as T;
+    } catch {
+      return { data: text } as unknown as T;
+    }
   } catch (error) {
     const err = error instanceof Error ? error : new Error(String(error));
     console.error(`[API] 🔴 Exception: ${err.message}`, err);

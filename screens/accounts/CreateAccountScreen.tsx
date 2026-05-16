@@ -55,17 +55,23 @@ const CreateAccountScreen: React.FC<Props> = ({ navigation }) => {
       await logger.info(MODULE, 'Création du compte', { name });
       await createSharedAccount(name, description, amount, currency);
 
-      Alert.alert('✅ Succès', 'Compte créé avec succès!', [
-        {
-          text: 'OK',
-          onPress: () => {
-            navigation.goBack();
-            setTimeout(() => {
-              (navigation as any).getParent()?.navigate('AccountsTab');
-            }, 100);
-          }
+      const goBackToList = (): void => {
+        navigation.goBack();
+        setTimeout(() => {
+          (navigation as any).getParent()?.navigate('AccountsTab');
+        }, 100);
+      };
+
+      if (Platform.OS === 'web') {
+        if (typeof window !== 'undefined') {
+          window.alert('✅ Succès\n\nCompte créé avec succès!');
         }
-      ]);
+        goBackToList();
+      } else {
+        Alert.alert('✅ Succès', 'Compte créé avec succès!', [
+          { text: 'OK', onPress: goBackToList },
+        ]);
+      }
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Erreur lors de la création';
       await logger.error(MODULE, 'Erreur création compte', error instanceof Error ? error : new Error(message));
