@@ -87,7 +87,6 @@ export async function apiCall<T>(
 
     const response = await fetch(url, fetchOptions);
 
-
     if (!response.ok) {
       let error: ApiResponse;
       const contentType = response.headers.get("content-type");
@@ -325,6 +324,24 @@ export async function removeMember(
     `/api/v1/shared-accounts/${accountId}/members/${memberId}`,
     {
       method: "DELETE",
+    },
+  );
+}
+
+/**
+ * Met à jour la couleur personnalisée d'un membre sur un compte partagé.
+ * Le backend doit n'autoriser qu'à l'utilisateur lui-même la modification de SA couleur.
+ */
+export async function updateMemberColor(
+  accountId: string,
+  memberId: string,
+  color: string,
+): Promise<ApiResponse> {
+  return apiCall<ApiResponse>(
+    `/api/v1/shared-accounts/${accountId}/members/${memberId}/color`,
+    {
+      method: "PATCH",
+      body: JSON.stringify({ color }),
     },
   );
 }

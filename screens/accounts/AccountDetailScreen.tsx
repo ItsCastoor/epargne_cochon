@@ -24,6 +24,7 @@ import {
   getAccountMembers,
   removeMember,
   createNotification,
+  updateMemberColor,
 } from "@/lib/api";
 import { logger } from "@/lib/logger";
 import { ScreenHeader, CustomButton, CustomCard } from "@/components";
@@ -132,6 +133,8 @@ const AccountDetailScreen: React.FC<Props> = ({ route, navigation }) => {
   const [contributionDesc, setContributionDesc] = useState("");
   const [withdrawalAmount, setWithdrawalAmount] = useState("");
   const [withdrawalDesc, setWithdrawalDesc] = useState("");
+  const [colorInput, setColorInput] = useState<string>("");
+  const [colorInputError, setColorInputError] = useState<string>("");
 
   const isCurrentUserOwner = Boolean(
     account?.members?.find(
@@ -143,6 +146,10 @@ const AccountDetailScreen: React.FC<Props> = ({ route, navigation }) => {
     `${user?.firstName ?? ""} ${user?.lastName ?? ""}`.trim() ||
     user?.email ||
     "Un utilisateur";
+
+  const getMemberColor = (member: { id: string; color?: string }): string => {
+    return member.color?.trim() || generateColorFromId(member.id);
+  };
 
   const getContributionDisplayName = (contribution: Contribution): string => {
     const apiFullName =
@@ -430,6 +437,29 @@ const AccountDetailScreen: React.FC<Props> = ({ route, navigation }) => {
       await loadData();
     } catch (error) {
       Alert.alert("Erreur", String(error));
+    }
+  };
+
+  const handleSelectColor = async (color: string): Promise<void> => {
+    if (!account || !user?.id) return;
+    try {
+      await updateMemberColor(account.id, user.id, color);
+      setAccount((prev) =>
+        prev
+          ? {
+              ...prev,
+              members: prev.members?.map((m) =>
+                m.id === user.id ? { ...m, color } : m,
+              ),
+            }
+          : prev,
+      );
+    } catch (error) {
+      const err = error instanceof Error ? error : new Error(String(error));
+      Alert.alert(
+        "Erreur",
+        `Impossible de changer la couleur : ${err.message}`,
+      );
     }
   };
 
@@ -725,7 +755,7 @@ const AccountDetailScreen: React.FC<Props> = ({ route, navigation }) => {
                             style={{
                               height: "100%",
                               width: `${memberWidthPercent}%`,
-                              backgroundColor: generateColorFromId(member.id),
+                              backgroundColor: getMemberColor(member),
                             }}
                           />
                         ) : null;
@@ -840,7 +870,7 @@ const AccountDetailScreen: React.FC<Props> = ({ route, navigation }) => {
                             width: 24,
                             height: 24,
                             borderRadius: 12,
-                            backgroundColor: generateColorFromId(member.id),
+                            backgroundColor: getMemberColor(member),
                           }}
                         />
                         <Text
@@ -935,7 +965,7 @@ const AccountDetailScreen: React.FC<Props> = ({ route, navigation }) => {
                         <View style={{ flexDirection: "row", gap: 8 }}>
                           <Chip
                             style={{
-                              backgroundColor: generateColorFromId(member.id),
+                              backgroundColor: getMemberColor(member),
                             }}
                           >
                             {member.role?.toLowerCase() === "owner"
@@ -966,6 +996,286 @@ const AccountDetailScreen: React.FC<Props> = ({ route, navigation }) => {
                 </View>
               </CustomCard>
             )}
+
+            {/* Sélecteur de couleur personnelle */}
+            {account.members?.some((m) => m.id === user?.id) && (
+              <CustomCard>
+                <View style={{ gap: 12 }}>
+                  <Text variant="titleMedium" style={{ fontWeight: "700" }}>
+                    🎨 Ma couleur
+                  </Text>
+                  <Text
+                    variant="bodySmall"
+                    style={{ color: theme.colors.onSurfaceVariant }}
+                  >
+                    Cette couleur sera utilisée pour identifier vos
+                    contributions sur ce compte.
+                  </Text>
+
+                  {/* Aperçu + sélecteur précis */}
+                  {(() => {
+                    const currentMember = account.members?.find(
+                      (m) => m.id === user?.id,
+                    );
+                    const currentColor = currentMember
+                      ? getMemberColor(currentMember)
+                      : "#0f766e";
+
+                    return (
+                      <>
+                        <View
+                          style={{
+                            flexDirection: "row",
+                            alignItems: "center",
+                            gap: 12,
+                          }}
+                        >
+                          <View
+                            style={{
+                              width: 48,
+                              height: 48,
+                              borderRadius: 24,
+                              backgroundColor: currentColor,
+                              borderWidth: 2,
+                              borderColor: theme.colors.outline,
+                            }}
+                          />
+                          <View style={{ flex: 1, gap: 4 }}>
+                            <Text
+                              variant="labelSmall"
+                              style={{
+                                color: theme.colors.onSurfaceVariant,
+                              }}
+                            >
+                              Couleur actuelle
+                            </Text>
+                            <Text
+                              variant="bodyMedium"
+                              style={{
+                                fontWeight: "600",
+                                fontFamily: "monospace",
+                              }}
+                            >
+                              {currentColor.toUpperCase()}
+                            </Text>
+                          </View>
+                        </View>
+
+                        {/* Champ hex pour saisie précise */}
+                        <View style={{ gap: 6 }}>
+                          <Text
+                            variant="labelSmall"
+                            style={{ color: theme.colors.onSurfaceVariant }}
+                          >
+                            Code hexadécimal
+                          </Text>
+                          <View
+                            style={{
+                              flexDirection: "row",
+                              gap: 8,
+                              alignItems: "center",
+                            }}
+                          >
+                            <TextInput
+                              value={colorInput || currentColor}
+                              onChangeText={(text) => {
+                                setColorInput(text);
+                                if (colorInputError) setColorInputError("");
+                              }}
+                              onSubmitEditing={() => {
+                                const trimmed = (
+                                  colorInput || currentColor
+                                ).trim();
+                                if (
+                                  /^#[0-9A-Fa-f]{6}([0-9A-Fa-f]{2})?$/.test(
+                                    trimmed,
+                                  )
+                                ) {
+                                  handleSelectColor(trimmed);
+                                  setColorInput("");
+                                  setColorInputError("");
+                                } else {
+                                  setColorInputError(
+                                    "Format invalide (ex: #7F3FBF)",
+                                  );
+                                }
+                              }}
+                              placeholder="#7F3FBF"
+                              autoCapitalize="characters"
+                              autoCorrect={false}
+                              maxLength={9}
+                              returnKeyType="done"
+                              style={{
+                                width: 110,
+                                borderWidth: 1,
+                                borderColor: colorInputError
+                                  ? theme.colors.error
+                                  : theme.colors.outline,
+                                borderRadius: 8,
+                                paddingHorizontal: 10,
+                                paddingVertical: 8,
+                                color: theme.colors.onBackground,
+                                fontFamily: "monospace",
+                                fontSize: 13,
+                              }}
+                              placeholderTextColor={
+                                theme.colors.onSurfaceVariant
+                              }
+                            />
+                            <Pressable
+                              onPress={() => {
+                                const trimmed = (
+                                  colorInput || currentColor
+                                ).trim();
+                                if (
+                                  /^#[0-9A-Fa-f]{6}([0-9A-Fa-f]{2})?$/.test(
+                                    trimmed,
+                                  )
+                                ) {
+                                  handleSelectColor(trimmed);
+                                  setColorInput("");
+                                  setColorInputError("");
+                                } else {
+                                  setColorInputError(
+                                    "Format invalide (ex: #7F3FBF)",
+                                  );
+                                }
+                              }}
+                              style={{
+                                paddingHorizontal: 14,
+                                paddingVertical: 9,
+                                backgroundColor: theme.colors.primary,
+                                borderRadius: 8,
+                              }}
+                            >
+                              <Text
+                                style={{
+                                  color: "#fff",
+                                  fontWeight: "600",
+                                  fontSize: 13,
+                                }}
+                              >
+                                Appliquer
+                              </Text>
+                            </Pressable>
+                          </View>
+                          {colorInputError ? (
+                            <Text
+                              variant="labelSmall"
+                              style={{ color: theme.colors.error }}
+                            >
+                              {colorInputError}
+                            </Text>
+                          ) : null}
+                        </View>
+
+                        {/* Raccourcis palette */}
+                        <Text
+                          variant="labelSmall"
+                          style={{
+                            color: theme.colors.onSurfaceVariant,
+                            marginTop: -4,
+                          }}
+                        >
+                          Raccourcis
+                        </Text>
+                        <View
+                          style={{
+                            flexDirection: "row",
+                            alignItems: "center",
+                            flexWrap: "wrap",
+                            gap: 6,
+                            marginTop: -4,
+                          }}
+                        >
+                          {[
+                            "#ef4444",
+                            "#f97316",
+                            "#f59e0b",
+                            "#eab308",
+                            "#84cc16",
+                            "#22c55e",
+                            "#10b981",
+                            "#14b8a6",
+                            "#06b6d4",
+                            "#0ea5e9",
+                            "#3b82f6",
+                            "#6366f1",
+                            "#8b5cf6",
+                            "#a855f7",
+                            "#d946ef",
+                            "#ec4899",
+                            "#f43f5e",
+                            "#64748b",
+                          ].map((color) => {
+                            const isSelected =
+                              currentColor.toLowerCase() ===
+                              color.toLowerCase();
+                            return (
+                              <Pressable
+                                key={color}
+                                onPress={() => handleSelectColor(color)}
+                                style={{
+                                  width: 28,
+                                  height: 28,
+                                  borderRadius: 14,
+                                  backgroundColor: color,
+                                  borderWidth: isSelected ? 2 : 1,
+                                  borderColor: isSelected
+                                    ? theme.colors.onBackground
+                                    : theme.colors.outline,
+                                  justifyContent: "center",
+                                  alignItems: "center",
+                                }}
+                              >
+                                {isSelected && (
+                                  <MaterialCommunityIcons
+                                    name="check"
+                                    size={14}
+                                    color="#fff"
+                                  />
+                                )}
+                              </Pressable>
+                            );
+                          })}
+
+                          {/* Sélecteur natif sur web, collé après la palette */}
+                          {Platform.OS === "web" && (
+                            <View
+                              style={{
+                                width: 28,
+                                height: 28,
+                                borderWidth: 1,
+                                borderColor: theme.colors.outline,
+                                borderRadius: 14,
+                                overflow: "hidden",
+                              }}
+                            >
+                              {React.createElement("input", {
+                                type: "color",
+                                value: currentColor,
+                                onChange: (
+                                  e: React.ChangeEvent<HTMLInputElement>,
+                                ) => handleSelectColor(e.target.value),
+                                style: {
+                                  width: "100%",
+                                  height: "100%",
+                                  border: "none",
+                                  padding: 0,
+                                  cursor: "pointer",
+                                  background: "transparent",
+                                },
+                              })}
+                            </View>
+                          )}
+                        </View>
+                      </>
+                    );
+                  })()}
+                </View>
+              </CustomCard>
+            )}
+
             {isCurrentUserOwner && (
               <CustomCard>
                 <View style={{ gap: 12 }}>
@@ -1193,7 +1503,7 @@ const AccountDetailScreen: React.FC<Props> = ({ route, navigation }) => {
                           width: 10,
                           height: 10,
                           borderRadius: 5,
-                          backgroundColor: generateColorFromId(member.id),
+                          backgroundColor: getMemberColor(member),
                         }}
                       />
                       <View style={{ flex: 1 }}>
@@ -1289,7 +1599,7 @@ const AccountDetailScreen: React.FC<Props> = ({ route, navigation }) => {
                                 width: 16,
                                 height: 16,
                                 borderRadius: 8,
-                                backgroundColor: generateColorFromId(member.id),
+                                backgroundColor: getMemberColor(member),
                               }}
                             />
                             <Text variant="labelSmall" style={{ fontSize: 11 }}>
@@ -1309,7 +1619,7 @@ const AccountDetailScreen: React.FC<Props> = ({ route, navigation }) => {
                       (m) => m.id === contrib.userId,
                     );
                     const memberColor = contributor
-                      ? generateColorFromId(contributor.id)
+                      ? getMemberColor(contributor)
                       : theme.colors.primary;
                     const displayName = getContributionDisplayName(contrib);
                     const isWithdrawal = contrib.type === "WITHDRAWAL";
