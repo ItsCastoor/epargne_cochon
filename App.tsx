@@ -6,6 +6,10 @@ import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
 import { AuthProvider, useAuth } from "@/lib/AuthContext";
+import {
+  NotificationsProvider,
+  useNotifications,
+} from "@/lib/NotificationsContext";
 import { logger } from "@/lib/logger";
 import {
   AuthStackParamList,
@@ -43,6 +47,7 @@ function AuthStackNavigator() {
 
 // Tabs Navigator
 function AppTabs() {
+  const { unreadCount } = useNotifications();
   return (
     <Tab.Navigator
       screenOptions={{
@@ -95,6 +100,20 @@ function AppTabs() {
           tabBarIcon: ({ color, size }) => (
             <MaterialCommunityIcons name="bell" size={size} color={color} />
           ),
+          tabBarBadge: unreadCount > 0 ? unreadCount : undefined,
+          tabBarBadgeStyle: {
+            backgroundColor: "#ef4444",
+            color: "#fff",
+            fontSize: 9,
+            fontWeight: "700",
+            minWidth: 14,
+            height: 14,
+            lineHeight: 14,
+            borderRadius: 7,
+            paddingHorizontal: 3,
+            marginLeft: -4,
+            marginTop: -2,
+          },
           headerTitleStyle: { fontSize: 18, fontWeight: "600" },
         }}
       />
@@ -190,7 +209,9 @@ export default function App() {
   return (
     <PaperProvider theme={appTheme}>
       <AuthProvider>
-        <RootNavigator />
+        <NotificationsProvider>
+          <RootNavigator />
+        </NotificationsProvider>
       </AuthProvider>
     </PaperProvider>
   );

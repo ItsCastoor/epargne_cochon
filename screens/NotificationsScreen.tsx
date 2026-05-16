@@ -23,6 +23,7 @@ import { logger } from "@/lib/logger";
 import { TabParamList } from "@/lib/navigation";
 import { ScreenHeader } from "@/components";
 import { appTheme } from "@/lib/theme";
+import { useNotifications } from "@/lib/NotificationsContext";
 
 type AppTheme = typeof appTheme;
 
@@ -160,6 +161,7 @@ type Props = BottomTabScreenProps<TabParamList, "NotificationsTab">;
 const NotificationsScreen: React.FC<Props> = () => {
   const theme = useTheme<AppTheme>();
   const { width } = useWindowDimensions();
+  const { refresh: refreshBadge } = useNotifications();
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -219,6 +221,7 @@ const NotificationsScreen: React.FC<Props> = () => {
       setNotifications((notif) =>
         notif.map((n) => (n.id === id ? { ...n, isRead: true } : n)),
       );
+      refreshBadge();
     } catch (error) {
       Alert.alert("Erreur", "Impossible de marquer la notification");
     }
@@ -230,6 +233,7 @@ const NotificationsScreen: React.FC<Props> = () => {
       setNotifications((notif) =>
         notif.map((n) => (n.id === id ? { ...n, isRead: false } : n)),
       );
+      refreshBadge();
     } catch (error) {
       Alert.alert("Erreur", "Impossible de marquer comme non lue");
     }
@@ -239,6 +243,7 @@ const NotificationsScreen: React.FC<Props> = () => {
     try {
       await markAllNotificationsAsRead();
       setNotifications((notif) => notif.map((n) => ({ ...n, isRead: true })));
+      refreshBadge();
     } catch (error) {
       Alert.alert("Erreur", "Impossible de marquer toutes les notifications");
     }
@@ -463,7 +468,10 @@ const NotificationsScreen: React.FC<Props> = () => {
                     <Pressable
                       onPress={() => {
                         deleteNotification(notif.id)
-                          .then(() => setNotifications((notifList) => notifList.filter((n) => n.id !== notif.id)))
+                          .then(() => {
+                            setNotifications((notifList) => notifList.filter((n) => n.id !== notif.id));
+                            refreshBadge();
+                          })
                           .catch(() => Alert.alert("Erreur", "Impossible de supprimer la notification"));
                       }}
                       style={{ padding: 4 }}
