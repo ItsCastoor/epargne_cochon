@@ -1,9 +1,16 @@
-import React, { useEffect, useState } from 'react';
-import { View, ScrollView, Alert, ActivityIndicator, Pressable, TextInput } from 'react-native';
-import { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { Text, useTheme, Chip } from 'react-native-paper';
-import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
-import { AppStackParamList } from '@/lib/navigation';
+import React, { useEffect, useState } from "react";
+import {
+  View,
+  ScrollView,
+  Alert,
+  ActivityIndicator,
+  Pressable,
+  TextInput,
+} from "react-native";
+import { NativeStackScreenProps } from "@react-navigation/native-stack";
+import { Text, useTheme, Chip } from "react-native-paper";
+import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
+import { AppStackParamList } from "@/lib/navigation";
 import {
   getSharedAccount,
   deleteSharedAccount,
@@ -14,13 +21,15 @@ import {
   createWithdrawal,
   inviteMember,
   getAccountMembers,
-  removeMember
-} from '@/lib/api';
-import { logger } from '@/lib/logger';
-import { ScreenHeader, CustomButton, CustomCard } from '@/components';
-import { generateColorFromId } from '@/lib/colors';
+  removeMember,
+  createNotification,
+} from "@/lib/api";
+import { logger } from "@/lib/logger";
+import { ScreenHeader, CustomButton, CustomCard } from "@/components";
+import { generateColorFromId } from "@/lib/colors";
+import { useAuth } from "@/lib/AuthContext";
 
-type Props = NativeStackScreenProps<AppStackParamList, 'AccountDetail'>;
+type Props = NativeStackScreenProps<AppStackParamList, "AccountDetail">;
 
 interface Account {
   id: string;
@@ -30,7 +39,13 @@ interface Account {
   currentAmount: number;
   currency: string;
   createdAt?: string;
-  members?: Array<{ id: string; email: string; firstName: string; lastName: string; role: string }>;
+  members?: Array<{
+    id: string;
+    email: string;
+    firstName: string;
+    lastName: string;
+    role: string;
+  }>;
 }
 
 interface Goal {
@@ -47,34 +62,64 @@ interface Contribution {
   description?: string;
   createdAt: string;
   userId: string;
-  type?: 'CONTRIBUTION' | 'WITHDRAWAL';
+  type?: "CONTRIBUTION" | "WITHDRAWAL";
   User?: {
-    id: string;
-    email: string;
-    firstName: string;
-    lastName: string;
+    id?: string;
+    email?: string;
+    firstName?: string;
+    lastName?: string;
   };
 }
 
-type TabType = 'details' | 'members' | 'goals' | 'contributions';
+type TabType = "details" | "members" | "goals" | "contributions";
 
-const MODULE = 'AccountDetailScreen';
+const MODULE = "AccountDetailScreen";
 
 const AccountDetailScreen: React.FC<Props> = ({ route, navigation }) => {
   const { id } = route.params as { id: string };
   const theme = useTheme();
+  const { user } = useAuth();
   const [account, setAccount] = useState<Account | null>(null);
   const [goals, setGoals] = useState<Goal[]>([]);
   const [contributions, setContributions] = useState<Contribution[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isDeleting, setIsDeleting] = useState(false);
-  const [activeTab, setActiveTab] = useState<TabType>('details');
+  const [activeTab, setActiveTab] = useState<TabType>("details");
 
-  const [inviteEmail, setInviteEmail] = useState('');
-  const [contributionAmount, setContributionAmount] = useState('');
-  const [contributionDesc, setContributionDesc] = useState('');
-  const [withdrawalAmount, setWithdrawalAmount] = useState('');
-  const [withdrawalDesc, setWithdrawalDesc] = useState('');
+  const [inviteEmail, setInviteEmail] = useState("");
+  const [contributionAmount, setContributionAmount] = useState("");
+  const [contributionDesc, setContributionDesc] = useState("");
+  const [withdrawalAmount, setWithdrawalAmount] = useState("");
+  const [withdrawalDesc, setWithdrawalDesc] = useState("");
+
+  const currentUserDisplayName =
+    `${user?.firstName ?? ""} ${user?.lastName ?? ""}`.trim() ||
+    user?.email ||
+    "Un utilisateur";
+
+  const getContributionDisplayName = (contribution: Contribution): string => {
+    const apiFullName =
+      `${contribution.User?.firstName ?? ""} ${contribution.User?.lastName ?? ""}`.trim();
+
+    if (apiFullName) {
+      return apiFullName;
+    }
+
+    if (contribution.User?.email?.trim()) {
+      return contribution.User.email.trim();
+    }
+
+    const matchedMember = account?.members?.find((m) => m.id === contribution.userId);
+    if (matchedMember) {
+      return `${matchedMember.firstName} ${matchedMember.lastName}`.trim();
+    }
+
+    if (user?.id && contribution.userId === user.id) {
+      return currentUserDisplayName;
+    }
+
+    return "Anonyme";
+  };
 
   useEffect(() => {
     loadData();
@@ -83,16 +128,17 @@ const AccountDetailScreen: React.FC<Props> = ({ route, navigation }) => {
   const loadData = async (): Promise<void> => {
     try {
       setIsLoading(true);
-      const [accountData, membersData, goalsData, contributionsData] = await Promise.all([
-        getSharedAccount(id),
-        getAccountMembers(id),
-        getGoals(id),
-        getContributions(id),
-      ]);
+      const [accountData, membersData, goalsData, contributionsData] =
+        await Promise.all([
+          getSharedAccount(id),
+          getAccountMembers(id),
+          getGoals(id),
+          getContributions(id),
+        ]);
 
       let parsedAccount: Account | undefined;
       const acctData = accountData as any;
-      if (acctData && typeof acctData === 'object' && acctData.id) {
+      if (acctData && typeof acctData === "object" && acctData.id) {
         parsedAccount = acctData as Account;
       } else if (acctData?.data?.id) {
         parsedAccount = acctData.data as Account;
@@ -102,71 +148,132 @@ const AccountDetailScreen: React.FC<Props> = ({ route, navigation }) => {
         parsedAccount = acctData.shared_account as Account;
       }
 
-      if (!parsedAccount) throw new Error('Format non reconnu');
+      if (!parsedAccount) throw new Error("Format non reconnu");
 
       // Parse members from separate endpoint
-      let parsedMembers: Array<{ id: string; email: string; firstName: string; lastName: string; role: string }> = [];
+      let parsedMembers: Array<{
+        id: string;
+        email: string;
+        firstName: string;
+        lastName: string;
+        role: string;
+      }> = [];
       if (Array.isArray(membersData)) {
         parsedMembers = membersData;
-      } else if ((membersData as Record<string, unknown>).data && Array.isArray((membersData as Record<string, unknown>).data)) {
-        parsedMembers = (membersData as Record<string, unknown>).data as Array<{ id: string; email: string; firstName: string; lastName: string; role: string }>;
-      } else if ((membersData as Record<string, unknown>).members && Array.isArray((membersData as Record<string, unknown>).members)) {
-        parsedMembers = (membersData as Record<string, unknown>).members as Array<{ id: string; email: string; firstName: string; lastName: string; role: string }>;
+      } else if (
+        (membersData as Record<string, unknown>).data &&
+        Array.isArray((membersData as Record<string, unknown>).data)
+      ) {
+        parsedMembers = (membersData as Record<string, unknown>).data as Array<{
+          id: string;
+          email: string;
+          firstName: string;
+          lastName: string;
+          role: string;
+        }>;
+      } else if (
+        (membersData as Record<string, unknown>).members &&
+        Array.isArray((membersData as Record<string, unknown>).members)
+      ) {
+        parsedMembers = (membersData as Record<string, unknown>)
+          .members as Array<{
+          id: string;
+          email: string;
+          firstName: string;
+          lastName: string;
+          role: string;
+        }>;
       } else if ((membersData as Record<string, unknown>)[0]) {
-        parsedMembers = Object.values(membersData as Record<string, unknown>) as Array<{ id: string; email: string; firstName: string; lastName: string; role: string }>;
+        parsedMembers = Object.values(
+          membersData as Record<string, unknown>,
+        ) as Array<{
+          id: string;
+          email: string;
+          firstName: string;
+          lastName: string;
+          role: string;
+        }>;
       }
       parsedAccount.members = parsedMembers;
 
       let parsedGoals: Goal[] = [];
       if (Array.isArray(goalsData)) {
         parsedGoals = goalsData;
-      } else if ((goalsData as Record<string, unknown>).data && Array.isArray((goalsData as Record<string, unknown>).data)) {
+      } else if (
+        (goalsData as Record<string, unknown>).data &&
+        Array.isArray((goalsData as Record<string, unknown>).data)
+      ) {
         parsedGoals = (goalsData as Record<string, unknown>).data as Goal[];
-      } else if ((goalsData as Record<string, unknown>).goals && Array.isArray((goalsData as Record<string, unknown>).goals)) {
+      } else if (
+        (goalsData as Record<string, unknown>).goals &&
+        Array.isArray((goalsData as Record<string, unknown>).goals)
+      ) {
         parsedGoals = (goalsData as Record<string, unknown>).goals as Goal[];
       } else if ((goalsData as Record<string, unknown>)[0]) {
-        parsedGoals = Object.values(goalsData as Record<string, unknown>) as Goal[];
+        parsedGoals = Object.values(
+          goalsData as Record<string, unknown>,
+        ) as Goal[];
       }
 
       let parsedContributions: Contribution[] = [];
       if (Array.isArray(contributionsData)) {
         parsedContributions = contributionsData;
-      } else if ((contributionsData as Record<string, unknown>).contributions && Array.isArray((contributionsData as Record<string, unknown>).contributions)) {
-        parsedContributions = (contributionsData as Record<string, unknown>).contributions as Contribution[];
-      } else if ((contributionsData as Record<string, unknown>).data && Array.isArray((contributionsData as Record<string, unknown>).data)) {
-        parsedContributions = (contributionsData as Record<string, unknown>).data as Contribution[];
+      } else if (
+        (contributionsData as Record<string, unknown>).contributions &&
+        Array.isArray(
+          (contributionsData as Record<string, unknown>).contributions,
+        )
+      ) {
+        parsedContributions = (contributionsData as Record<string, unknown>)
+          .contributions as Contribution[];
+      } else if (
+        (contributionsData as Record<string, unknown>).data &&
+        Array.isArray((contributionsData as Record<string, unknown>).data)
+      ) {
+        parsedContributions = (contributionsData as Record<string, unknown>)
+          .data as Contribution[];
       } else if ((contributionsData as Record<string, unknown>)[0]) {
-        parsedContributions = Object.values(contributionsData as Record<string, unknown>) as Contribution[];
+        parsedContributions = Object.values(
+          contributionsData as Record<string, unknown>,
+        ) as Contribution[];
       }
 
       setAccount(parsedAccount);
       setGoals(parsedGoals);
       setContributions(parsedContributions);
-
     } catch (error) {
       const err = error instanceof Error ? error : new Error(String(error));
-      await logger.error(MODULE, 'Erreur chargement', err);
-      Alert.alert('Erreur', 'Impossible de charger le compte');
+      await logger.error(MODULE, "Erreur chargement", err);
+      Alert.alert("Erreur", "Impossible de charger le compte");
     } finally {
       setIsLoading(false);
     }
   };
 
   const handleDeleteAccount = (): void => {
-    Alert.alert('Confirmation', 'Êtes-vous sûr?', [
-      { text: 'Annuler', style: 'cancel' },
-      { text: 'Supprimer', style: 'destructive', onPress: deleteAccount },
+    Alert.alert("Confirmation", "Êtes-vous sûr?", [
+      { text: "Annuler", style: "cancel" },
+      { text: "Supprimer", style: "destructive", onPress: deleteAccount },
     ]);
   };
 
   const deleteAccount = async (): Promise<void> => {
     if (!account) return;
     try {
+      // Créer notification
+      await createNotification(
+        account.id,
+        "COMPTE_SUPP",
+        "Compte supprimé",
+        `${currentUserDisplayName} a supprimé le compte ${account.name}`,
+      ).catch(() => {});
+      Alert.alert("Succès", "Compte supprimé", [
+        { text: "OK", onPress: () => navigation.goBack() },
+      ]);
       setIsDeleting(true);
       await deleteSharedAccount(account.id);
-      Alert.alert('Succès', 'Compte supprimé', [{ text: 'OK', onPress: () => navigation.goBack() }]);
     } catch (error) {
-      Alert.alert('Erreur', 'Impossible de supprimer');
+      Alert.alert("Erreur", "Impossible de supprimer");
     } finally {
       setIsDeleting(false);
     }
@@ -174,124 +281,180 @@ const AccountDetailScreen: React.FC<Props> = ({ route, navigation }) => {
 
   const handleInviteMember = async (): Promise<void> => {
     if (!account || !inviteEmail.trim()) {
-      Alert.alert('Erreur', 'Veuillez entrer un email');
+      Alert.alert("Erreur", "Veuillez entrer un email");
       return;
     }
     try {
       await inviteMember(account.id, inviteEmail);
-      Alert.alert('Succès', 'Invitation envoyée!');
-      setInviteEmail('');
+      // Créer notification
+      await createNotification(
+        account.id,
+        "MEMBRE_AJOUTE",
+        "Nouveau membre",
+        `${currentUserDisplayName} a invité ${inviteEmail} sur le compte ${account.name}`,
+      ).catch(() => {});
+      Alert.alert("Succès", "Invitation envoyée!");
+      setInviteEmail("");
       await loadData();
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : String(error);
-      const statusCode = (error as any)?.status;
-
-      // Vérifier le code d'erreur HTTP
-      switch (statusCode) {
-        case 403:
-          Alert.alert('Erreur', 'Seul le propriétaire peut inviter');
-          break;
-        case 404:
-          Alert.alert('Erreur', 'L\'adresse email est introuvable');
-          break;
-        case 409:
-          Alert.alert('Erreur', 'L\'utilisateur est déjà membre');
-          break;
-        default:
-          // Si pas de code HTTP, afficher le message
-          Alert.alert('Erreur', errorMessage);
-      }
+      Alert.alert("Erreur", String(error));
     }
   };
 
   const handleAddContribution = async (): Promise<void> => {
     if (!account || !contributionAmount.trim()) {
-      Alert.alert('Erreur', 'Veuillez entrer un montant');
+      Alert.alert("Erreur", "Veuillez entrer un montant");
       return;
     }
     const amount = parseFloat(contributionAmount);
     if (isNaN(amount) || amount <= 0) {
-      Alert.alert('Erreur', 'Montant invalide');
+      Alert.alert("Erreur", "Montant invalide");
       return;
     }
     try {
       await createContribution(account.id, amount, contributionDesc);
-      Alert.alert('Succès', 'Contribution ajoutée!');
-      setContributionAmount('');
-      setContributionDesc('');
+      // Créer notification
+      await createNotification(
+        account.id,
+        "CONTRIBUTION",
+        "Contribution ajoutée",
+        `${currentUserDisplayName} a ajouté une contribution de ${amount} ${account.currency} au compte ${account.name}`,
+      ).catch(() => {});
+      Alert.alert("Succès", "Contribution ajoutée!");
+      setContributionAmount("");
+      setContributionDesc("");
       await loadData();
     } catch (error) {
-      Alert.alert('Erreur', String(error));
+      Alert.alert("Erreur", String(error));
     }
   };
 
-  const handleWithdrawal = async (): Promise<void> => {
+  const handleAddWithdrawal = async (): Promise<void> => {
     if (!account || !withdrawalAmount.trim()) {
-      Alert.alert('Erreur', 'Veuillez entrer un montant');
+      Alert.alert("Erreur", "Veuillez entrer un montant");
       return;
     }
     const amount = parseFloat(withdrawalAmount);
     if (isNaN(amount) || amount <= 0) {
-      Alert.alert('Erreur', 'Montant invalide');
+      Alert.alert("Erreur", "Montant invalide");
+      return;
+    }
+    if (amount > account.currentAmount) {
+      Alert.alert("Erreur", "Montant supérieur à l'épargne disponible");
       return;
     }
     try {
       await createWithdrawal(account.id, amount, withdrawalDesc);
-      Alert.alert('Succès', 'Retrait enregistré!');
-      setWithdrawalAmount('');
-      setWithdrawalDesc('');
+      // Créer notification
+      await createNotification(
+        account.id,
+        "RETRAIT",
+        "Retrait enregistré",
+        `${currentUserDisplayName} a enregistré un retrait de ${amount} ${account.currency} sur le compte ${account.name}`,
+      ).catch(() => {});
+      Alert.alert("Succès", "Retrait enregistré!");
+      setWithdrawalAmount("");
+      setWithdrawalDesc("");
       await loadData();
     } catch (error) {
-      Alert.alert('Erreur', String(error));
+      Alert.alert("Erreur", String(error));
     }
   };
 
   const handleRemoveMember = (memberId: string, memberName: string): void => {
-    Alert.alert('Confirmation', `Êtes-vous sûr de vouloir retirer ${memberName} ?`, [
-      { text: 'Annuler', style: 'cancel' },
-      { text: 'Retirer', style: 'destructive', onPress: () => removeMemberConfirmed(memberId) },
-    ]);
+    Alert.alert(
+      "Confirmation",
+      `Êtes-vous sûr de vouloir retirer ${memberName} ?`,
+      [
+        { text: "Annuler", style: "cancel" },
+        {
+          text: "Retirer",
+          style: "destructive",
+          onPress: () => removeMemberConfirmed(memberId, memberName),
+        },
+      ],
+    );
   };
 
-  const removeMemberConfirmed = async (memberId: string): Promise<void> => {
+  const removeMemberConfirmed = async (
+    memberId: string,
+    memberName: string,
+  ): Promise<void> => {
     if (!account) return;
     try {
       await removeMember(account.id, memberId);
-      Alert.alert('Succès', 'Membre retiré du compte');
+      await createNotification(
+        account.id,
+        "MEMBRE_RETIRE",
+        "Membre retiré",
+        `${currentUserDisplayName} a retiré ${memberName} du compte ${account.name}`,
+      ).catch(() => {});
+      Alert.alert("Succès", "Membre retiré du compte");
       await loadData();
     } catch (error) {
-      Alert.alert('Erreur', String(error));
+      Alert.alert("Erreur", String(error));
     }
   };
 
   if (isLoading) {
-    return <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: theme.colors.background }}><ActivityIndicator size="large" color={theme.colors.primary} /></View>;
+    return (
+      <View
+        style={{
+          flex: 1,
+          justifyContent: "center",
+          alignItems: "center",
+          backgroundColor: theme.colors.background,
+        }}
+      >
+        <ActivityIndicator size="large" color={theme.colors.primary} />
+      </View>
+    );
   }
 
   if (!account) {
-    return <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: theme.colors.background }}><Text>Compte non trouvé</Text></View>;
+    return (
+      <View
+        style={{
+          flex: 1,
+          justifyContent: "center",
+          alignItems: "center",
+          backgroundColor: theme.colors.background,
+        }}
+      >
+        <Text>Compte non trouvé</Text>
+      </View>
+    );
   }
 
   const progress = (account.currentAmount / account.targetAmount) * 100;
   const remaining = account.targetAmount - account.currentAmount;
-  const netByUser = (account.members ?? []).reduce<Record<string, number>>((acc, member) => {
-    acc[member.id] = 0;
-    return acc;
-  }, {});
+  const netByUser = (account.members ?? []).reduce<Record<string, number>>(
+    (acc, member) => {
+      acc[member.id] = 0;
+      return acc;
+    },
+    {},
+  );
   for (const item of contributions) {
-    const delta = item.type === 'WITHDRAWAL' ? -item.amount : item.amount;
+    const delta = item.type === "WITHDRAWAL" ? -item.amount : item.amount;
     netByUser[item.userId] = (netByUser[item.userId] ?? 0) + delta;
   }
   const sanitizedNetByUser = Object.fromEntries(
-    Object.entries(netByUser).map(([userId, value]) => [userId, Math.max(0, value)])
+    Object.entries(netByUser).map(([userId, value]) => [
+      userId,
+      Math.max(0, value),
+    ]),
   );
-  const totalNet = Object.values(sanitizedNetByUser).reduce((sum, value) => sum + value, 0);
+  const totalNet = Object.values(sanitizedNetByUser).reduce(
+    (sum, value) => sum + value,
+    0,
+  );
   const userSummaries = (account.members ?? []).map((member) => {
     const contributionTotal = contributions
-      .filter((item) => item.userId === member.id && item.type !== 'WITHDRAWAL')
+      .filter((item) => item.userId === member.id && item.type !== "WITHDRAWAL")
       .reduce((sum, item) => sum + item.amount, 0);
     const withdrawalTotal = contributions
-      .filter((item) => item.userId === member.id && item.type === 'WITHDRAWAL')
+      .filter((item) => item.userId === member.id && item.type === "WITHDRAWAL")
       .reduce((sum, item) => sum + item.amount, 0);
 
     return {
@@ -302,15 +465,19 @@ const AccountDetailScreen: React.FC<Props> = ({ route, navigation }) => {
     };
   });
   const tabs: { id: TabType; label: string; icon: any }[] = [
-    { id: 'details', label: 'Détails', icon: 'information-outline' },
-    { id: 'members', label: 'Membres', icon: 'account-multiple' },
-    { id: 'goals', label: 'Objectifs', icon: 'bullseye' },
-    { id: 'contributions', label: 'Contributions', icon: 'cash-plus' },
+    { id: "details", label: "Détails", icon: "information-outline" },
+    { id: "members", label: "Membres", icon: "account-multiple" },
+    { id: "goals", label: "Objectifs", icon: "bullseye" },
+    { id: "contributions", label: "Contributions", icon: "cash-plus" },
   ];
 
   return (
     <View style={{ flex: 1, backgroundColor: theme.colors.background }}>
-      <ScreenHeader gradient="dashboard" title={account.name} subtitle={account.description} />
+      <ScreenHeader
+        gradient="dashboard"
+        title={account.name}
+        subtitle={account.description}
+      />
 
       {/* Back Button */}
       <Pressable
@@ -321,13 +488,25 @@ const AccountDetailScreen: React.FC<Props> = ({ route, navigation }) => {
           backgroundColor: theme.colors.surface,
           borderBottomWidth: 1,
           borderBottomColor: theme.colors.outline,
-          flexDirection: 'row',
-          alignItems: 'center',
+          flexDirection: "row",
+          alignItems: "center",
           gap: 8,
         }}
       >
-        <MaterialCommunityIcons name="chevron-left" size={24} color={theme.colors.primary} />
-        <Text style={{ color: theme.colors.primary, fontWeight: '600', fontSize: 14 }}>Retour</Text>
+        <MaterialCommunityIcons
+          name="chevron-left"
+          size={24}
+          color={theme.colors.primary}
+        />
+        <Text
+          style={{
+            color: theme.colors.primary,
+            fontWeight: "600",
+            fontSize: 14,
+          }}
+        >
+          Retour
+        </Text>
       </Pressable>
 
       <View
@@ -336,46 +515,61 @@ const AccountDetailScreen: React.FC<Props> = ({ route, navigation }) => {
           borderBottomWidth: 1,
           borderBottomColor: theme.colors.outline,
           height: 56,
-          overflow: 'hidden',
+          overflow: "hidden",
         }}
       >
         <ScrollView
-            horizontal
-            scrollEnabled={true}
-            showsHorizontalScrollIndicator={false}
-            showsVerticalScrollIndicator={false}
-            style={{ flex: 1 }}
+          horizontal
+          scrollEnabled={true}
+          showsHorizontalScrollIndicator={false}
+          showsVerticalScrollIndicator={false}
+          style={{ flex: 1 }}
         >
-          <View style={{ flexDirection: 'row', gap: 0, alignItems: 'center' }}>
+          <View style={{ flexDirection: "row", gap: 0, alignItems: "center" }}>
             {tabs.map((tab) => (
               <Pressable
                 key={tab.id}
                 onPress={() => setActiveTab(tab.id)}
                 style={{
-                  flexDirection: 'column',
-                  alignItems: 'center',
-                  justifyContent: 'center',
+                  flexDirection: "column",
+                  alignItems: "center",
+                  justifyContent: "center",
                   paddingVertical: 8,
                   paddingHorizontal: 12,
                   minWidth: 88,
                   height: 56,
                   borderBottomWidth: 3,
-                  borderBottomColor: activeTab === tab.id ? theme.colors.primary : 'transparent',
+                  borderBottomColor:
+                    activeTab === tab.id ? theme.colors.primary : "transparent",
                 }}
               >
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 2 }}>
+                <View
+                  style={{
+                    flexDirection: "row",
+                    alignItems: "center",
+                    gap: 6,
+                    marginBottom: 2,
+                  }}
+                >
                   <MaterialCommunityIcons
                     name={tab.icon}
                     size={18}
-                    color={activeTab === tab.id ? theme.colors.primary : theme.colors.onSurfaceVariant}
+                    color={
+                      activeTab === tab.id
+                        ? theme.colors.primary
+                        : theme.colors.onSurfaceVariant
+                    }
                   />
                   <Text
                     numberOfLines={1}
                     ellipsizeMode="tail"
                     style={{
-                      fontWeight: activeTab === tab.id ? '700' : '600',
+                      fontWeight: activeTab === tab.id ? "700" : "600",
                       fontSize: 12,
-                      color: activeTab === tab.id ? theme.colors.primary : theme.colors.onSurfaceVariant,
+                      color:
+                        activeTab === tab.id
+                          ? theme.colors.primary
+                          : theme.colors.onSurfaceVariant,
                     }}
                   >
                     {tab.label}
@@ -387,29 +581,70 @@ const AccountDetailScreen: React.FC<Props> = ({ route, navigation }) => {
         </ScrollView>
       </View>
 
-      <ScrollView contentContainerStyle={{ paddingHorizontal: 16, paddingVertical: 20, paddingBottom: 32, gap: 16 }}>
-        {activeTab === 'details' && (
+      <ScrollView
+        contentContainerStyle={{
+          paddingHorizontal: 16,
+          paddingVertical: 20,
+          paddingBottom: 32,
+          gap: 16,
+        }}
+      >
+        {activeTab === "details" && (
           <>
             <CustomCard>
               <View style={{ gap: 12 }}>
-                <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
-                  <View><Text variant="labelSmall" style={{ color: theme.colors.onSurfaceVariant }}>Épargné</Text><Text variant="headlineSmall" style={{ fontWeight: '700', color: theme.colors.primary }}>{account.currentAmount.toFixed(2)} {account.currency}</Text></View>
-                  <Text variant="headlineLarge" style={{ color: theme.colors.tertiary }}>{progress.toFixed(0)}%</Text>
+                <View
+                  style={{
+                    flexDirection: "row",
+                    justifyContent: "space-between",
+                  }}
+                >
+                  <View>
+                    <Text
+                      variant="labelSmall"
+                      style={{ color: theme.colors.onSurfaceVariant }}
+                    >
+                      Épargné
+                    </Text>
+                    <Text
+                      variant="headlineSmall"
+                      style={{ fontWeight: "700", color: theme.colors.primary }}
+                    >
+                      {account.currentAmount.toFixed(2)} {account.currency}
+                    </Text>
+                  </View>
+                  <Text
+                    variant="headlineLarge"
+                    style={{ color: theme.colors.tertiary }}
+                  >
+                    {progress.toFixed(0)}%
+                  </Text>
                 </View>
 
                 {/* Barre de progression colorée par contributeur */}
-                <View style={{ height: 8, backgroundColor: theme.colors.surfaceVariant, borderRadius: 4, overflow: 'hidden', flexDirection: 'row' }}>
-                  {account.members && account.members.length > 0 && account.targetAmount > 0 ? (
+                <View
+                  style={{
+                    height: 8,
+                    backgroundColor: theme.colors.surfaceVariant,
+                    borderRadius: 4,
+                    overflow: "hidden",
+                    flexDirection: "row",
+                  }}
+                >
+                  {account.members &&
+                  account.members.length > 0 &&
+                  account.targetAmount > 0 ? (
                     <>
                       {account.members.map((member) => {
                         const memberTotal = sanitizedNetByUser[member.id] ?? 0;
-                        const memberWidthPercent = (memberTotal / account.targetAmount) * 100;
+                        const memberWidthPercent =
+                          (memberTotal / account.targetAmount) * 100;
 
                         return memberWidthPercent > 0 ? (
                           <View
                             key={member.id}
                             style={{
-                              height: '100%',
+                              height: "100%",
                               width: `${memberWidthPercent}%`,
                               backgroundColor: generateColorFromId(member.id),
                             }}
@@ -418,25 +653,89 @@ const AccountDetailScreen: React.FC<Props> = ({ route, navigation }) => {
                       })}
                       <View
                         style={{
-                          height: '100%',
-                          width: `${Math.max(0, account.targetAmount - totalNet) / account.targetAmount * 100}%`,
+                          height: "100%",
+                          width: `${(Math.max(0, account.targetAmount - totalNet) / account.targetAmount) * 100}%`,
                           backgroundColor: theme.colors.surfaceVariant,
                         }}
                       />
                     </>
                   ) : (
-                    <View style={{ height: '100%', backgroundColor: theme.colors.tertiary, width: '100%' }} />
+                    <View
+                      style={{
+                        height: "100%",
+                        backgroundColor: theme.colors.tertiary,
+                        width: "100%",
+                      }}
+                    />
                   )}
                 </View>
 
-                <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}><Text variant="labelSmall">Objectif: {account.targetAmount.toFixed(2)} {account.currency}</Text><Text variant="labelSmall">À épargner: {remaining.toFixed(2)} {account.currency}</Text></View>
+                <View
+                  style={{
+                    flexDirection: "row",
+                    justifyContent: "space-between",
+                  }}
+                >
+                  <Text variant="labelSmall">
+                    Objectif: {account.targetAmount.toFixed(2)}{" "}
+                    {account.currency}
+                  </Text>
+                  <Text variant="labelSmall">
+                    À épargner: {remaining.toFixed(2)} {account.currency}
+                  </Text>
+                </View>
               </View>
             </CustomCard>
             <CustomCard>
               <View style={{ gap: 12 }}>
-                <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}><Text variant="bodyMedium" style={{ color: theme.colors.onSurfaceVariant }}>Devise</Text><Text variant="bodyMedium" style={{ fontWeight: '600' }}>{account.currency}</Text></View>
-                {account.createdAt && <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}><Text variant="bodyMedium" style={{ color: theme.colors.onSurfaceVariant }}>Créé le</Text><Text variant="bodyMedium" style={{ fontWeight: '600' }}>{new Date(account.createdAt).toLocaleDateString('fr-FR')}</Text></View>}
-                <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}><Text variant="bodyMedium" style={{ color: theme.colors.onSurfaceVariant }}>Membres</Text><Chip>{account.members?.length || 0}</Chip></View>
+                <View
+                  style={{
+                    flexDirection: "row",
+                    justifyContent: "space-between",
+                  }}
+                >
+                  <Text
+                    variant="bodyMedium"
+                    style={{ color: theme.colors.onSurfaceVariant }}
+                  >
+                    Devise
+                  </Text>
+                  <Text variant="bodyMedium" style={{ fontWeight: "600" }}>
+                    {account.currency}
+                  </Text>
+                </View>
+                {account.createdAt && (
+                  <View
+                    style={{
+                      flexDirection: "row",
+                      justifyContent: "space-between",
+                    }}
+                  >
+                    <Text
+                      variant="bodyMedium"
+                      style={{ color: theme.colors.onSurfaceVariant }}
+                    >
+                      Créé le
+                    </Text>
+                    <Text variant="bodyMedium" style={{ fontWeight: "600" }}>
+                      {new Date(account.createdAt).toLocaleDateString("fr-FR")}
+                    </Text>
+                  </View>
+                )}
+                <View
+                  style={{
+                    flexDirection: "row",
+                    justifyContent: "space-between",
+                  }}
+                >
+                  <Text
+                    variant="bodyMedium"
+                    style={{ color: theme.colors.onSurfaceVariant }}
+                  >
+                    Membres
+                  </Text>
+                  <Chip>{account.members?.length || 0}</Chip>
+                </View>
               </View>
             </CustomCard>
 
@@ -444,18 +743,41 @@ const AccountDetailScreen: React.FC<Props> = ({ route, navigation }) => {
             {account.members && account.members.length > 0 && (
               <CustomCard>
                 <View style={{ gap: 12 }}>
-                  <Text variant="titleMedium" style={{ fontWeight: '700' }}>📋 Légende des contributeurs</Text>
+                  <Text variant="titleMedium" style={{ fontWeight: "700" }}>
+                    📋 Légende des contributeurs
+                  </Text>
                   <View style={{ gap: 8 }}>
                     {account.members.map((member) => (
-                      <View key={member.id} style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-                        <View style={{
-                          width: 24,
-                          height: 24,
-                          borderRadius: 12,
-                          backgroundColor: generateColorFromId(member.id),
-                        }} />
-                        <Text variant="bodySmall" style={{ flex: 1, fontWeight: '500' }}>{member.firstName} {member.lastName}</Text>
-                        <Text variant="labelSmall" style={{ color: theme.colors.onSurfaceVariant }}>{member.role?.toLowerCase() === 'owner' ? 'propriétaire' : 'contributeur'}</Text>
+                      <View
+                        key={member.id}
+                        style={{
+                          flexDirection: "row",
+                          alignItems: "center",
+                          gap: 12,
+                        }}
+                      >
+                        <View
+                          style={{
+                            width: 24,
+                            height: 24,
+                            borderRadius: 12,
+                            backgroundColor: generateColorFromId(member.id),
+                          }}
+                        />
+                        <Text
+                          variant="bodySmall"
+                          style={{ flex: 1, fontWeight: "500" }}
+                        >
+                          {member.firstName} {member.lastName}
+                        </Text>
+                        <Text
+                          variant="labelSmall"
+                          style={{ color: theme.colors.onSurfaceVariant }}
+                        >
+                          {member.role?.toLowerCase() === "owner"
+                            ? "propriétaire"
+                            : "contributeur"}
+                        </Text>
                       </View>
                     ))}
                   </View>
@@ -463,25 +785,96 @@ const AccountDetailScreen: React.FC<Props> = ({ route, navigation }) => {
               </CustomCard>
             )}
 
-            <CustomButton label={isDeleting ? 'Suppression...' : '🗑️ Supprimer'} onPress={handleDeleteAccount} variant="danger" loading={isDeleting} disabled={isDeleting} />
+            <CustomButton
+              label={isDeleting ? "Suppression..." : "🗑️ Supprimer"}
+              onPress={handleDeleteAccount}
+              variant="danger"
+              loading={isDeleting}
+              disabled={isDeleting}
+            />
           </>
         )}
 
-        {activeTab === 'members' && (
+        {activeTab === "members" && (
           <>
             {account.members && account.members.length > 0 && (
               <CustomCard>
                 <View style={{ gap: 12 }}>
-                  <Text variant="titleMedium" style={{ fontWeight: '700' }}>Membres</Text>
-                  <View style={{ borderTopWidth: 1, borderTopColor: theme.colors.outline }} />
+                  <Text variant="titleMedium" style={{ fontWeight: "700" }}>
+                    Membres
+                  </Text>
+                  <View
+                    style={{
+                      borderTopWidth: 1,
+                      borderTopColor: theme.colors.outline,
+                    }}
+                  />
                   <View style={{ gap: 8 }}>
                     {account.members.map((member) => (
-                      <View key={member.id} style={{ flexDirection: 'row', alignItems: 'center', gap: 12, paddingBottom: 8, borderBottomWidth: 1, borderBottomColor: theme.colors.outline }}>
-                        <View style={{ flex: 1 }}><Text variant="bodyMedium" style={{ fontWeight: '600' }}>{member.firstName} {member.lastName}</Text><Text variant="labelSmall" style={{ color: theme.colors.onSurfaceVariant, marginTop: 4 }}>{member.email}</Text><Text variant="labelMedium" style={{ color: theme.colors.onSurfaceVariant, marginTop: 4 }}>Rôle: {member.role?.toLowerCase() === 'owner' ? 'propriétaire' : 'contributeur'}</Text></View>
-                        <View style={{ flexDirection: 'row', gap: 8 }}>
-                          <Chip style={{ backgroundColor: generateColorFromId(member.id) }}>{member.role?.toLowerCase() === 'owner' ? 'propriétaire' : 'contributeur'}</Chip>
-                          <Pressable onPress={() => handleRemoveMember(member.id, `${member.firstName} ${member.lastName}`)} style={{ padding: 8 }}>
-                            <MaterialCommunityIcons name="trash-can-outline" size={20} color={theme.colors.error} />
+                      <View
+                        key={member.id}
+                        style={{
+                          flexDirection: "row",
+                          alignItems: "center",
+                          gap: 12,
+                          paddingBottom: 8,
+                          borderBottomWidth: 1,
+                          borderBottomColor: theme.colors.outline,
+                        }}
+                      >
+                        <View style={{ flex: 1 }}>
+                          <Text
+                            variant="bodyMedium"
+                            style={{ fontWeight: "600" }}
+                          >
+                            {member.firstName} {member.lastName}
+                          </Text>
+                          <Text
+                            variant="labelSmall"
+                            style={{
+                              color: theme.colors.onSurfaceVariant,
+                              marginTop: 4,
+                            }}
+                          >
+                            {member.email}
+                          </Text>
+                          <Text
+                            variant="labelMedium"
+                            style={{
+                              color: theme.colors.onSurfaceVariant,
+                              marginTop: 4,
+                            }}
+                          >
+                            Rôle:{" "}
+                            {member.role?.toLowerCase() === "owner"
+                              ? "propriétaire"
+                              : "contributeur"}
+                          </Text>
+                        </View>
+                        <View style={{ flexDirection: "row", gap: 8 }}>
+                          <Chip
+                            style={{
+                              backgroundColor: generateColorFromId(member.id),
+                            }}
+                          >
+                            {member.role?.toLowerCase() === "owner"
+                              ? "propriétaire"
+                              : "contributeur"}
+                          </Chip>
+                          <Pressable
+                            onPress={() =>
+                              handleRemoveMember(
+                                member.id,
+                                `${member.firstName} ${member.lastName}`,
+                              )
+                            }
+                            style={{ padding: 8 }}
+                          >
+                            <MaterialCommunityIcons
+                              name="trash-can-outline"
+                              size={20}
+                              color={theme.colors.error}
+                            />
                           </Pressable>
                         </View>
                       </View>
@@ -492,95 +885,331 @@ const AccountDetailScreen: React.FC<Props> = ({ route, navigation }) => {
             )}
             <CustomCard>
               <View style={{ gap: 12 }}>
-                <Text variant="titleMedium" style={{ fontWeight: '700' }}>Inviter</Text>
-                <TextInput placeholder="email@example.com" value={inviteEmail} onChangeText={setInviteEmail} keyboardType="email-address" autoCapitalize="none" style={{ borderWidth: 1, borderColor: theme.colors.outline, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 10, color: theme.colors.onBackground }} placeholderTextColor={theme.colors.onSurfaceVariant} />
-                <CustomButton label="📧 Envoyer" onPress={handleInviteMember} variant="secondary" />
+                <Text variant="titleMedium" style={{ fontWeight: "700" }}>
+                  Inviter
+                </Text>
+                <TextInput
+                  placeholder="email@example.com"
+                  value={inviteEmail}
+                  onChangeText={setInviteEmail}
+                  keyboardType="email-address"
+                  autoCapitalize="none"
+                  style={{
+                    borderWidth: 1,
+                    borderColor: theme.colors.outline,
+                    borderRadius: 8,
+                    paddingHorizontal: 12,
+                    paddingVertical: 10,
+                    color: theme.colors.onBackground,
+                  }}
+                  placeholderTextColor={theme.colors.onSurfaceVariant}
+                />
+                <CustomButton
+                  label="📧 Envoyer"
+                  onPress={handleInviteMember}
+                  variant="secondary"
+                />
               </View>
             </CustomCard>
           </>
         )}
 
-        {activeTab === 'goals' && (
-          goals.length === 0 ? (
-            <CustomCard style={{ backgroundColor: theme.colors.tertiaryContainer }}><Text variant="bodyMedium" style={{ color: theme.colors.tertiary, textAlign: 'center' }}>🎯 Aucun objectif</Text></CustomCard>
+        {activeTab === "goals" &&
+          (goals.length === 0 ? (
+            <CustomCard
+              style={{ backgroundColor: theme.colors.tertiaryContainer }}
+            >
+              <Text
+                variant="bodyMedium"
+                style={{ color: theme.colors.tertiary, textAlign: "center" }}
+              >
+                🎯 Aucun objectif
+              </Text>
+            </CustomCard>
           ) : (
             <View style={{ gap: 12 }}>
               {goals.map((goal) => (
                 <CustomCard key={goal.id}>
                   <View style={{ gap: 8 }}>
-                    <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}><Text variant="titleMedium" style={{ fontWeight: '700', flex: 1 }}>{goal.name}</Text><Text variant="bodySmall" style={{ color: theme.colors.onSurfaceVariant }}>{new Date(goal.deadline).toLocaleDateString('fr-FR')}</Text></View>
-                    <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}><Text variant="bodySmall">{goal.currentAmount} € / {goal.targetAmount} €</Text><Text variant="labelSmall" style={{ color: theme.colors.secondary, fontWeight: '600' }}>{((goal.currentAmount / goal.targetAmount) * 100).toFixed(0)}%</Text></View>
-                    <Pressable onPress={() => deleteGoal(id, goal.id).then(() => loadData()).catch(e => Alert.alert('Erreur', String(e)))} style={{ paddingVertical: 8 }}><Text style={{ color: theme.colors.error, fontWeight: '600' }}>🗑️ Supprimer</Text></Pressable>
+                    <View
+                      style={{
+                        flexDirection: "row",
+                        justifyContent: "space-between",
+                      }}
+                    >
+                      <Text
+                        variant="titleMedium"
+                        style={{ fontWeight: "700", flex: 1 }}
+                      >
+                        {goal.name}
+                      </Text>
+                      <Text
+                        variant="bodySmall"
+                        style={{ color: theme.colors.onSurfaceVariant }}
+                      >
+                        {new Date(goal.deadline).toLocaleDateString("fr-FR")}
+                      </Text>
+                    </View>
+                    <View
+                      style={{
+                        flexDirection: "row",
+                        justifyContent: "space-between",
+                      }}
+                    >
+                      <Text variant="bodySmall">
+                        {goal.currentAmount} € / {goal.targetAmount} €
+                      </Text>
+                      <Text
+                        variant="labelSmall"
+                        style={{
+                          color: theme.colors.secondary,
+                          fontWeight: "600",
+                        }}
+                      >
+                        {(
+                          (goal.currentAmount / goal.targetAmount) *
+                          100
+                        ).toFixed(0)}
+                        %
+                      </Text>
+                    </View>
+                    <Pressable
+                      onPress={() =>
+                        deleteGoal(id, goal.id)
+                          .then(() => loadData())
+                          .catch((e) => Alert.alert("Erreur", String(e)))
+                      }
+                      style={{ paddingVertical: 8 }}
+                    >
+                      <Text
+                        style={{ color: theme.colors.error, fontWeight: "600" }}
+                      >
+                        🗑️ Supprimer
+                      </Text>
+                    </Pressable>
                   </View>
                 </CustomCard>
               ))}
             </View>
-          )
-        )}
+          ))}
 
-        {activeTab === 'contributions' && (
+        {activeTab === "contributions" && (
           <>
             <CustomCard>
               <View style={{ gap: 12 }}>
-                <Text variant="titleMedium" style={{ fontWeight: '700' }}>➕ Ajouter une contribution</Text>
-                <TextInput placeholder="Montant" value={contributionAmount} onChangeText={setContributionAmount} keyboardType="decimal-pad" style={{ borderWidth: 1, borderColor: theme.colors.outline, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 10, color: theme.colors.onBackground }} placeholderTextColor={theme.colors.onSurfaceVariant} />
-                <TextInput placeholder="Description" value={contributionDesc} onChangeText={setContributionDesc} multiline numberOfLines={2} style={{ borderWidth: 1, borderColor: theme.colors.outline, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 10, color: theme.colors.onBackground }} placeholderTextColor={theme.colors.onSurfaceVariant} />
-                <CustomButton label="➕ Ajouter" onPress={handleAddContribution} variant="secondary" />
+                <Text variant="titleMedium" style={{ fontWeight: "700" }}>
+                  ➕ Ajouter une contribution
+                </Text>
+                <TextInput
+                  placeholder="Montant"
+                  value={contributionAmount}
+                  onChangeText={setContributionAmount}
+                  keyboardType="decimal-pad"
+                  style={{
+                    borderWidth: 1,
+                    borderColor: theme.colors.outline,
+                    borderRadius: 8,
+                    paddingHorizontal: 12,
+                    paddingVertical: 10,
+                    color: theme.colors.onBackground,
+                  }}
+                  placeholderTextColor={theme.colors.onSurfaceVariant}
+                />
+                <TextInput
+                  placeholder="Description"
+                  value={contributionDesc}
+                  onChangeText={setContributionDesc}
+                  multiline
+                  numberOfLines={2}
+                  style={{
+                    borderWidth: 1,
+                    borderColor: theme.colors.outline,
+                    borderRadius: 8,
+                    paddingHorizontal: 12,
+                    paddingVertical: 10,
+                    color: theme.colors.onBackground,
+                  }}
+                  placeholderTextColor={theme.colors.onSurfaceVariant}
+                />
+                <CustomButton
+                  label="➕ Ajouter"
+                  onPress={handleAddContribution}
+                  variant="secondary"
+                />
               </View>
             </CustomCard>
 
             <CustomCard>
               <View style={{ gap: 12 }}>
-                <Text variant="titleMedium" style={{ fontWeight: '700' }}>➖ Enregistrer un retrait</Text>
-                <TextInput placeholder="Montant" value={withdrawalAmount} onChangeText={setWithdrawalAmount} keyboardType="decimal-pad" style={{ borderWidth: 1, borderColor: theme.colors.outline, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 10, color: theme.colors.onBackground }} placeholderTextColor={theme.colors.onSurfaceVariant} />
-                <TextInput placeholder="Motif du retrait" value={withdrawalDesc} onChangeText={setWithdrawalDesc} multiline numberOfLines={2} style={{ borderWidth: 1, borderColor: theme.colors.outline, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 10, color: theme.colors.onBackground }} placeholderTextColor={theme.colors.onSurfaceVariant} />
-                <CustomButton label="➖ Enregistrer le retrait" onPress={handleWithdrawal} variant="danger" />
+                <Text variant="titleMedium" style={{ fontWeight: "700" }}>
+                  ➖ Enregistrer un retrait
+                </Text>
+                <TextInput
+                  placeholder="Montant"
+                  value={withdrawalAmount}
+                  onChangeText={setWithdrawalAmount}
+                  keyboardType="decimal-pad"
+                  style={{
+                    borderWidth: 1,
+                    borderColor: theme.colors.outline,
+                    borderRadius: 8,
+                    paddingHorizontal: 12,
+                    paddingVertical: 10,
+                    color: theme.colors.onBackground,
+                  }}
+                  placeholderTextColor={theme.colors.onSurfaceVariant}
+                />
+                <TextInput
+                  placeholder="Motif du retrait"
+                  value={withdrawalDesc}
+                  onChangeText={setWithdrawalDesc}
+                  multiline
+                  numberOfLines={2}
+                  style={{
+                    borderWidth: 1,
+                    borderColor: theme.colors.outline,
+                    borderRadius: 8,
+                    paddingHorizontal: 12,
+                    paddingVertical: 10,
+                    color: theme.colors.onBackground,
+                  }}
+                  placeholderTextColor={theme.colors.onSurfaceVariant}
+                />
+                <CustomButton
+                  label="➖ Enregistrer le retrait"
+                  onPress={handleAddWithdrawal}
+                  variant="danger"
+                />
               </View>
             </CustomCard>
             <CustomCard>
               <View style={{ gap: 12 }}>
-                <Text variant="titleMedium" style={{ fontWeight: '700' }}>📊 Résumé par utilisateur</Text>
-                {userSummaries.map(({ member, contributionTotal, withdrawalTotal, netTotal }) => (
-                  <View key={member.id} style={{ flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 6 }}>
-                    <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: generateColorFromId(member.id) }} />
-                    <View style={{ flex: 1 }}>
-                      <Text variant="bodySmall" style={{ fontWeight: '600' }}>{member.firstName} {member.lastName}</Text>
-                      <Text variant="labelSmall" style={{ color: theme.colors.onSurfaceVariant }}>
-                        +{contributionTotal.toFixed(2)} {account.currency} • -{withdrawalTotal.toFixed(2)} {account.currency}
-                      </Text>
+                <Text variant="titleMedium" style={{ fontWeight: "700" }}>
+                  📊 Résumé par utilisateur
+                </Text>
+                {userSummaries.map(
+                  ({
+                    member,
+                    contributionTotal,
+                    withdrawalTotal,
+                    netTotal,
+                  }) => (
+                    <View
+                      key={member.id}
+                      style={{
+                        flexDirection: "row",
+                        alignItems: "center",
+                        gap: 12,
+                        paddingVertical: 6,
+                      }}
+                    >
+                      <View
+                        style={{
+                          width: 10,
+                          height: 10,
+                          borderRadius: 5,
+                          backgroundColor: generateColorFromId(member.id),
+                        }}
+                      />
+                      <View style={{ flex: 1 }}>
+                        <Text variant="bodySmall" style={{ fontWeight: "600" }}>
+                          {member.firstName} {member.lastName}
+                        </Text>
+                        <Text
+                          variant="labelSmall"
+                          style={{ color: theme.colors.onSurfaceVariant }}
+                        >
+                          +{contributionTotal.toFixed(2)} {account.currency} • -
+                          {withdrawalTotal.toFixed(2)} {account.currency}
+                        </Text>
+                      </View>
+                      <Chip
+                        style={{
+                          backgroundColor: theme.colors.primaryContainer,
+                        }}
+                      >
+                        <Text
+                          style={{
+                            color: theme.colors.primary,
+                            fontWeight: "600",
+                          }}
+                        >
+                          {netTotal.toFixed(2)} {account.currency}
+                        </Text>
+                      </Chip>
                     </View>
-                    <Chip style={{ backgroundColor: theme.colors.primaryContainer }}>
-                      <Text style={{ color: theme.colors.primary, fontWeight: '600' }}>{netTotal.toFixed(2)} {account.currency}</Text>
-                    </Chip>
-                  </View>
-                ))}
-                <View style={{ borderTopWidth: 1, borderTopColor: theme.colors.outline, paddingTop: 8, marginTop: 4, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <Text variant="bodySmall" style={{ fontWeight: '700' }}>Total net</Text>
-                  <Text variant="bodySmall" style={{ color: theme.colors.primary, fontWeight: '700' }}>
+                  ),
+                )}
+                <View
+                  style={{
+                    borderTopWidth: 1,
+                    borderTopColor: theme.colors.outline,
+                    paddingTop: 8,
+                    marginTop: 4,
+                    flexDirection: "row",
+                    justifyContent: "space-between",
+                    alignItems: "center",
+                  }}
+                >
+                  <Text variant="bodySmall" style={{ fontWeight: "700" }}>
+                    Total net
+                  </Text>
+                  <Text
+                    variant="bodySmall"
+                    style={{ color: theme.colors.primary, fontWeight: "700" }}
+                  >
                     {totalNet.toFixed(2)} {account.currency}
                   </Text>
                 </View>
               </View>
             </CustomCard>
             {contributions.length === 0 ? (
-              <CustomCard style={{ backgroundColor: theme.colors.primaryContainer }}><Text variant="bodyMedium" style={{ color: theme.colors.primary, textAlign: 'center' }}>💰 Aucune contribution</Text></CustomCard>
+              <CustomCard
+                style={{ backgroundColor: theme.colors.primaryContainer }}
+              >
+                <Text
+                  variant="bodyMedium"
+                  style={{ color: theme.colors.primary, textAlign: "center" }}
+                >
+                  💰 Aucune contribution
+                </Text>
+              </CustomCard>
             ) : (
               <>
                 {/* Légende pour contributions */}
                 {account.members && account.members.length > 0 && (
                   <CustomCard style={{ backgroundColor: theme.colors.surface }}>
                     <View style={{ gap: 8 }}>
-                      <Text variant="labelSmall" style={{ fontWeight: '600', color: theme.colors.onSurfaceVariant }}>📍 Couleur par contributeur:</Text>
-                      <View style={{ flexDirection: 'column', gap: 8 }}>
+                      <Text
+                        variant="labelSmall"
+                        style={{
+                          fontWeight: "600",
+                          color: theme.colors.onSurfaceVariant,
+                        }}
+                      >
+                        📍 Couleur par contributeur:
+                      </Text>
+                      <View style={{ flexDirection: "column", gap: 8 }}>
                         {account.members.map((member) => (
-                          <View key={member.id} style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                            <View style={{
-                              width: 16,
-                              height: 16,
-                              borderRadius: 8,
-                              backgroundColor: generateColorFromId(member.id),
-                            }} />
-                            <Text variant="labelSmall" style={{ fontSize: 11 }}>{member.firstName} {member.lastName}</Text>
+                          <View
+                            key={member.id}
+                            style={{
+                              flexDirection: "row",
+                              alignItems: "center",
+                              gap: 6,
+                            }}
+                          >
+                            <View
+                              style={{
+                                width: 16,
+                                height: 16,
+                                borderRadius: 8,
+                                backgroundColor: generateColorFromId(member.id),
+                              }}
+                            />
+                            <Text variant="labelSmall" style={{ fontSize: 11 }}>
+                              {member.firstName} {member.lastName}
+                            </Text>
                           </View>
                         ))}
                       </View>
@@ -591,37 +1220,91 @@ const AccountDetailScreen: React.FC<Props> = ({ route, navigation }) => {
                 <View style={{ gap: 12 }}>
                   {contributions.map((contrib) => {
                     // Trouver le membre qui a contribué en matchant par userId
-                    const contributor = account.members?.find(m => m.id === contrib.userId);
-                    const memberColor = contributor ? generateColorFromId(contributor.id) : theme.colors.primary;
-                    const displayName = contrib.User
-                      ? `${contrib.User.firstName} ${contrib.User.lastName}`.trim()
-                      : contributor
-                      ? `${contributor.firstName} ${contributor.lastName}`
-                      : 'Anonyme';
-                    const isWithdrawal = contrib.type === 'WITHDRAWAL';
+                    const contributor = account.members?.find(
+                      (m) => m.id === contrib.userId,
+                    );
+                    const memberColor = contributor
+                      ? generateColorFromId(contributor.id)
+                      : theme.colors.primary;
+                    const displayName = getContributionDisplayName(contrib);
+                    const isWithdrawal = contrib.type === "WITHDRAWAL";
 
                     return (
-                      <CustomCard key={contrib.id} style={{ borderLeftColor: memberColor, borderLeftWidth: 4 }}>
+                      <CustomCard
+                        key={contrib.id}
+                        style={{
+                          borderLeftColor: memberColor,
+                          borderLeftWidth: 4,
+                        }}
+                      >
                         <View style={{ gap: 8 }}>
-                          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
-                            <Text variant="titleSmall" style={{ color: memberColor, fontWeight: '700', flex: 1 }}>👤 {displayName}</Text>
+                          <View
+                            style={{
+                              flexDirection: "row",
+                              justifyContent: "space-between",
+                              alignItems: "center",
+                              gap: 8,
+                            }}
+                          >
+                            <Text
+                              variant="titleSmall"
+                              style={{
+                                color: memberColor,
+                                fontWeight: "700",
+                                flex: 1,
+                              }}
+                            >
+                              👤 {displayName}
+                            </Text>
                             {isWithdrawal && (
-                              <Chip style={{ backgroundColor: theme.colors.errorContainer }}>
-                                <Text style={{ color: theme.colors.error, fontWeight: '600' }}>Retrait</Text>
+                              <Chip
+                                style={{
+                                  backgroundColor: theme.colors.errorContainer,
+                                }}
+                              >
+                                <Text
+                                  style={{
+                                    color: theme.colors.error,
+                                    fontWeight: "600",
+                                  }}
+                                >
+                                  Retrait
+                                </Text>
                               </Chip>
                             )}
                             <Text
                               variant="titleSmall"
                               style={{
-                                fontWeight: '700',
-                                color: isWithdrawal ? theme.colors.error : theme.colors.tertiary,
+                                fontWeight: "700",
+                                color: isWithdrawal
+                                  ? theme.colors.error
+                                  : theme.colors.tertiary,
                               }}
                             >
-                              {isWithdrawal ? '-' : ''}{contrib.amount.toFixed(2)} {account.currency}
+                              {isWithdrawal ? "-" : ""}
+                              {contrib.amount.toFixed(2)} {account.currency}
                             </Text>
                           </View>
-                          <Text variant="labelSmall" style={{ color: theme.colors.onSurfaceVariant }}>{new Date(contrib.createdAt).toLocaleDateString('fr-FR')}</Text>
-                          {contrib.description && <Text variant="bodySmall" style={{ marginTop: 4, fontStyle: 'italic', color: theme.colors.onSurfaceVariant }}>{contrib.description}</Text>}
+                          <Text
+                            variant="labelSmall"
+                            style={{ color: theme.colors.onSurfaceVariant }}
+                          >
+                            {new Date(contrib.createdAt).toLocaleDateString(
+                              "fr-FR",
+                            )}
+                          </Text>
+                          {contrib.description && (
+                            <Text
+                              variant="bodySmall"
+                              style={{
+                                marginTop: 4,
+                                fontStyle: "italic",
+                                color: theme.colors.onSurfaceVariant,
+                              }}
+                            >
+                              {contrib.description}
+                            </Text>
+                          )}
                         </View>
                       </CustomCard>
                     );
@@ -637,4 +1320,3 @@ const AccountDetailScreen: React.FC<Props> = ({ route, navigation }) => {
 };
 
 export default AccountDetailScreen;
-

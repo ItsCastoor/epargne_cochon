@@ -1,25 +1,28 @@
-import React, { useEffect, useState } from 'react';
-import { View, ActivityIndicator } from 'react-native';
-import { PaperProvider, Text } from 'react-native-paper';
-import { NavigationContainer } from '@react-navigation/native';
-import { createNativeStackNavigator } from '@react-navigation/native-stack';
-import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
-import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
-import { AuthProvider, useAuth } from '@/lib/AuthContext';
-import { logger } from '@/lib/logger';
-import { AuthStackParamList, TabParamList, AppStackParamList } from '@/lib/navigation';
-import appTheme from '@/lib/theme';
+import React, { useEffect, useState } from "react";
+import { View, ActivityIndicator } from "react-native";
+import { PaperProvider } from "react-native-paper";
+import { NavigationContainer } from "@react-navigation/native";
+import { createNativeStackNavigator } from "@react-navigation/native-stack";
+import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
+import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
+import { AuthProvider, useAuth } from "@/lib/AuthContext";
+import { logger } from "@/lib/logger";
+import {
+  AuthStackParamList,
+  TabParamList,
+  AppStackParamList,
+} from "@/lib/navigation";
+import appTheme from "@/lib/theme";
 
 // Screens
-import RegisterScreen from '@/screens/auth/RegisterScreen';
-import DashboardScreen from '@/screens/DashboardScreen';
-import AccountsListScreen from '@/screens/accounts/AccountsListScreen';
-import NotificationsScreen from '@/screens/NotificationsScreen';
-import CreateAccountScreen from '@/screens/accounts/CreateAccountScreen';
-import AccountDetailScreen from '@/screens/accounts/AccountDetailScreen';
+import RegisterScreen from "@/screens/auth/RegisterScreen";
+import DashboardScreen from "@/screens/DashboardScreen";
+import AccountsListScreen from "@/screens/accounts/AccountsListScreen";
+import NotificationsScreen from "@/screens/NotificationsScreen";
+import CreateAccountScreen from "@/screens/accounts/CreateAccountScreen";
+import AccountDetailScreen from "@/screens/accounts/AccountDetailScreen";
 import LoginScreen from "@/screens/auth/LoginScreen";
 
-const MODULE = 'App';
 const AuthStack = createNativeStackNavigator<AuthStackParamList>();
 const AppStack = createNativeStackNavigator<AppStackParamList>();
 const Tab = createBottomTabNavigator<TabParamList>();
@@ -29,7 +32,7 @@ function AuthStackNavigator() {
   return (
     <AuthStack.Navigator
       screenOptions={{
-        headerShown: false
+        headerShown: false,
       }}
     >
       <AuthStack.Screen name="Login" component={LoginScreen} />
@@ -44,12 +47,12 @@ function AppTabs() {
     <Tab.Navigator
       screenOptions={{
         headerShown: false,
-        tabBarActiveTintColor: '#2563eb',
-        tabBarInactiveTintColor: '#9ca3af',
+        tabBarActiveTintColor: "#2563eb",
+        tabBarInactiveTintColor: "#9ca3af",
         tabBarStyle: {
-          borderTopColor: '#e5e7eb',
+          borderTopColor: "#e5e7eb",
           borderTopWidth: 1,
-          backgroundColor: '#fff',
+          backgroundColor: "#fff",
           paddingTop: 8,
           paddingBottom: 8,
         },
@@ -59,36 +62,40 @@ function AppTabs() {
         name="DashboardTab"
         component={DashboardScreen}
         options={{
-          title: 'Tableau de bord',
-          tabBarLabel: 'Accueil',
+          title: "Tableau de bord",
+          tabBarLabel: "Accueil",
           tabBarIcon: ({ color, size }) => (
             <MaterialCommunityIcons name="home" size={size} color={color} />
           ),
-          headerTitleStyle: { fontSize: 18, fontWeight: '600' },
+          headerTitleStyle: { fontSize: 18, fontWeight: "600" },
         }}
       />
       <Tab.Screen
         name="AccountsTab"
         component={AccountsListScreen}
         options={{
-          title: 'Comptes',
-          tabBarLabel: 'Comptes',
+          title: "Comptes",
+          tabBarLabel: "Comptes",
           tabBarIcon: ({ color, size }) => (
-            <MaterialCommunityIcons name="briefcase" size={size} color={color} />
+            <MaterialCommunityIcons
+              name="briefcase"
+              size={size}
+              color={color}
+            />
           ),
-          headerTitleStyle: { fontSize: 18, fontWeight: '600' },
+          headerTitleStyle: { fontSize: 18, fontWeight: "600" },
         }}
       />
       <Tab.Screen
         name="NotificationsTab"
         component={NotificationsScreen}
         options={{
-          title: 'Notifications',
-          tabBarLabel: 'Notifications',
+          title: "Notifications",
+          tabBarLabel: "Notifications",
           tabBarIcon: ({ color, size }) => (
             <MaterialCommunityIcons name="bell" size={size} color={color} />
           ),
-          headerTitleStyle: { fontSize: 18, fontWeight: '600' },
+          headerTitleStyle: { fontSize: 18, fontWeight: "600" },
         }}
       />
     </Tab.Navigator>
@@ -103,22 +110,19 @@ function AppStackNavigator() {
         headerShown: false,
       }}
     >
-      <AppStack.Screen
-        name="HomeStack"
-        component={AppTabs}
-      />
+      <AppStack.Screen name="HomeStack" component={AppTabs} />
       <AppStack.Screen
         name="CreateAccount"
         component={CreateAccountScreen as any}
         options={{
-          presentation: 'card',
+          presentation: "card",
         }}
       />
       <AppStack.Screen
         name="AccountDetail"
         component={AccountDetailScreen as any}
         options={{
-          presentation: 'card',
+          presentation: "card",
         }}
       />
     </AppStack.Navigator>
@@ -131,7 +135,14 @@ function RootNavigator() {
 
   if (isLoading) {
     return (
-      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#fff' }}>
+      <View
+        style={{
+          flex: 1,
+          justifyContent: "center",
+          alignItems: "center",
+          backgroundColor: "#fff",
+        }}
+      >
         <ActivityIndicator size="large" color="#2563eb" />
       </View>
     );
@@ -143,7 +154,6 @@ function RootNavigator() {
     </NavigationContainer>
   );
 }
-
 // Main App with AuthProvider
 export default function App() {
   const [loggerReady, setLoggerReady] = useState(false);
@@ -153,7 +163,7 @@ export default function App() {
       try {
         await logger.initialize();
       } catch (error) {
-        console.error('[App] Error initializing logger:', error);
+        console.error("[App] Error initializing logger:", error);
       } finally {
         setLoggerReady(true);
       }
@@ -164,7 +174,14 @@ export default function App() {
 
   if (!loggerReady) {
     return (
-      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#fff' }}>
+      <View
+        style={{
+          flex: 1,
+          justifyContent: "center",
+          alignItems: "center",
+          backgroundColor: "#fff",
+        }}
+      >
         <ActivityIndicator size="large" color="#2563eb" />
       </View>
     );
